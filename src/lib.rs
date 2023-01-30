@@ -32,29 +32,40 @@ pub mod sha256 {
     }
 
     impl MsgSch {
-        fn new(buf: &mut Vec<u8>, index: usize) -> Self {
-            let mut msg_sch = Self::default();
-            msg_sch.update(buf, index);
-            msg_sch
-        }
-
-        // Copy the block into 1st 16 words w[0..15] of the message schedule.
-        // Big-endian convention is used when parsing message block data from bytes to words
-        pub fn update(&mut self, buf: &mut Vec<u8>, index: usize) {
+        // Copies the 512-bit block from the buffer located at *index* into the 1st 16 words w[0..15] of the message schedule.
+        pub fn load_block(&mut self, buf: &mut Vec<u8>, index: usize) {
             self.w.fill(0);
             unsafe {
                 let mut ptr = buf.as_mut_ptr().add(index) as *mut u32;
                 for j in 0..16 {
-                    self.w[j] = (*ptr).to_be();
+                    self.w[j] = (*ptr).to_be(); // Covert everything to big-endian 
                     ptr = ptr.add(1);
                 }
             }
         }
     }
 
+    #[derive(Debug, Clone)]
     /// Represents a SHA-256 digest in binary format.
     pub struct Digest {
         data: [u32; 8],
+    }
+
+    impl Eq for Digest {}
+
+    impl PartialEq for Digest {
+        fn eq(&self, other: &Self) -> bool {
+            for i in 0..8 {
+                if self.data[i] != other.data[i] {
+                    return false;
+                }
+            }
+            true
+        }
+
+        fn ne(&self, other: &Self) -> bool {
+            !self.eq(other)
+        }
     }
 
     impl Default for Digest {
@@ -160,22 +171,18 @@ pub mod sha256 {
 
         /// Calculates and returns a new SHA-256 digest from a vector of bytes.
         pub fn from_buffer(buf: &mut Vec<u8>) -> Digest {
-            // Create a new digest consisting of the first 32 bits of the fractional parts
-            // of the square roots of the first 8 primes 2 through 19.
             let mut digest: Digest = Digest::new();
             let mut msg_sch: MsgSch = MsgSch::default();
-
             Self::fix_up(buf, buf.len());
-
             // break the message block into 512-bit chunks. This is the "chunk loop"
             for index in (0..buf.len()).step_by(BLOCK_SIZE) {
-                msg_sch.update(buf, index);
+                msg_sch.load_block(buf, index);
                 digest.update(&mut msg_sch);
             }
-
             digest
         }
 
+        /// Updates the value of the digest based on the contents of the message schedule.
         fn update(&mut self, msg_sch: &mut MsgSch) {
             // extend the first 16 words into the remaining 48 words of the message schedule
             for i in 0..48 {
