@@ -3,10 +3,10 @@ pub mod sha256 {
     use std::fs::File;
     use std::io::{BufReader, Read};
 
-    // number of bytes in a 512-bit block
+    /// number of bytes in a 512-bit block
     const BLOCK_SIZE: usize = 512 / 8;
 
-    // The first 32 bits of the fractional parts of the cube roots of the first 64 primes 2 through 311.
+    /// The first 32 bits of the fractional parts of the cube roots of the first 64 primes 2 through 311.
     const SHA256_CONSTANTS: [u32; 64] = [
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
         0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe,
@@ -63,6 +63,7 @@ pub mod sha256 {
             true
         }
 
+        #[allow(clippy::partialeq_ne_impl)]
         fn ne(&self, other: &Self) -> bool {
             !self.eq(other)
         }
@@ -104,11 +105,14 @@ pub mod sha256 {
             dst
         }
 
-        /// Attempts to create a new sha-256 digest from string. The string argument must be 64 characters
+        /// Attempts to create a new sha-256 digest from the string argument. The string must be 64 characters
         /// in hexidecimal format and exclude the "0x" prefix. Ok(Digest) is returned on success. Err(String)
         /// is returned on failure.
-        pub fn from_hex_string(string: &String) -> Result<Digest, String> {
-            match string.len().cmp(&64) {
+        pub fn from_hex_string(string: &str) -> Result<Digest, String> {
+            let lower: String = string.to_ascii_lowercase();
+            let mut src: &str = lower.trim();
+            if let Some(s) = src.strip_prefix("0x") {src = s}
+            match src.len().cmp(&64) {
                 std::cmp::Ordering::Greater => {
                     Err(String::from("String is longer then 64 characters."))
                 }
@@ -119,8 +123,8 @@ pub mod sha256 {
                     let mut digest = Digest::new();
                     for i in 0..8 {
                         let offset: usize = i * 8;
-                        match u32::from_str_radix(&string[offset..(offset + 8)], 16) {
-                            Ok(string) => digest.data[i] = string,
+                        match u32::from_str_radix(&src[offset..(offset + 8)], 16) {
+                            Ok(d) => digest.data[i] = d,
                             Err(e) => return Err(e.to_string()),
                         }
                     }
