@@ -7,7 +7,7 @@ pub mod sha256 {
     const BLOCK_SIZE: usize = 512 / 8;
 
     /// The first 32 bits of the fractional parts of the cube roots of the first 64 primes 2 through 311.
-    const SHA256_CONSTANTS: [u32; 64] = [
+    const CONSTANTS: [u32; 64] = [
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
         0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe,
         0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f,
@@ -38,7 +38,7 @@ pub mod sha256 {
             unsafe {
                 let mut ptr = buf.as_mut_ptr().add(index) as *mut u32;
                 for j in 0..16 {
-                    self.w[j] = (*ptr).to_be(); // Covert everything to big-endian 
+                    self.w[j] = (*ptr).to_be(); // Covert everything to big-endian
                     ptr = ptr.add(1);
                 }
             }
@@ -111,7 +111,9 @@ pub mod sha256 {
         pub fn from_hex_string(string: &str) -> Result<Digest, String> {
             let lower: String = string.to_ascii_lowercase();
             let mut src: &str = lower.trim();
-            if let Some(s) = src.strip_prefix("0x") {src = s}
+            if let Some(s) = src.strip_prefix("0x") {
+                src = s
+            }
             match src.len().cmp(&64) {
                 std::cmp::Ordering::Greater => {
                     Err(String::from("String is longer then 64 characters."))
@@ -205,7 +207,7 @@ pub mod sha256 {
             let mut h: u32 = self.data[7];
 
             // the "compression loop"
-            for (i, constant) in SHA256_CONSTANTS.iter().enumerate() {
+            for (i, constant) in CONSTANTS.iter().enumerate() {
                 let sigma0: u32 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
                 let sigma1: u32 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
                 let choice: u32 = (e & f) ^ ((e ^ u32::MAX) & g);
