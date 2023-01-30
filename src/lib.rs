@@ -166,11 +166,6 @@ pub mod sha256 {
             // Append 64 bits to the end, where the 64 bits are a big-endian
             // integer representing the length of the original input in binary.
             buf.extend_from_slice(&original_bit_count);
-
-            assert!(
-                buf.len() % BLOCK_SIZE == 0,
-                "buffer is not a multiple of block size"
-            );
         }
 
         /// Calculates and returns a new SHA-256 digest from a vector of bytes.
