@@ -3,29 +3,34 @@ pub mod sha256 {
     use std::fs::File;
     use std::io::{BufReader, Read};
 
+    /// Represents a SHA-256 digest in binary format.
     pub struct Digest {
         data: [u32; 8],
     }
 
-    struct MsgSch {
-        w: [u32; 64],
-    }
-
-    impl Default for MsgSch {
-        fn default() -> Self {
-            Self { w: [0; 64] }
-        }
-    }
-
     impl Default for Digest {
+        /// Creates a new SHA-256 digest initialized with the first 32 bits of the
+        /// fractional parts of the square roots of the first 8 primes, 2 through 19.
         fn default() -> Self {
             Self::new()
         }
     }
 
+    /// Represents the message schedule buffer used in the processing of the SHA-256 algorithm.
+    struct MsgSch {
+        w: [u32; 64],
+    }
+
+    impl Default for MsgSch {
+        /// Creates a new message schedule initialized to zero.
+        fn default() -> Self {
+            Self { w: [0; 64] }
+        }
+    }
+
     impl Digest {
-        // Initialize hash value SHA256_CONSTANTS: The first 32 bits of the fractional parts
-        // of the square roots of the first 8 primes 2 through 19.
+        /// Creates a new SHA-256 digest initialized with the first 32 bits of the
+        /// fractional parts of the square roots of the first 8 primes, 2 through 19.
         pub fn new() -> Self {
             Self {
                 data: [
@@ -35,12 +40,14 @@ pub mod sha256 {
             }
         }
 
+        /// Prints the text representation of the digest in hexidecimal format to stdio.
         pub fn print_as_hex(&self) {
             for x in self.data {
                 print!("{:08x}", x);
             }
         }
 
+        /// Returns a new string containing the text representation of the digest in hexidecimal format.
         pub fn to_hex_string(&self) -> String {
             let mut dst: String = String::new();
             for n in self.data {
@@ -49,6 +56,9 @@ pub mod sha256 {
             dst
         }
 
+        /// Attempts to create a new sha-256 digest from string. The string argument must be 64 characters
+        /// in hexidecimal format and exclude the "0x" prefix. Ok(Digest) is returned on success. Err(String)
+        /// is returned on failure.
         pub fn from_hex_string(string: &String) -> Result<Digest, String> {
             match string.len().cmp(&64) {
                 std::cmp::Ordering::Greater => {
@@ -71,6 +81,10 @@ pub mod sha256 {
             }
         }
 
+        /// Attempts to open a file, read all of its contents into a buffer, then calculate and
+        /// return a new SHA-256 digest. Ok(Digest) is returned on success. Err(String) is returned
+        /// on failure. The *path* argument must contain the path and file name of the file for
+        /// which the digest should be calculated.
         pub fn from_file(path: &String) -> Result<Digest, String> {
             match File::open(path) {
                 Ok(inner) => {
@@ -85,8 +99,9 @@ pub mod sha256 {
             }
         }
 
+        /// Calculates and returns a new SHA-256 digest from a vector of bytes.
         pub fn from_data(buf: &mut Vec<u8>) -> Digest {
-            /// The first 32 bits of the fractional parts of the cube roots of the first 64 primes 2 through 311.
+            // The first 32 bits of the fractional parts of the cube roots of the first 64 primes 2 through 311.
             const SHA256_CONSTANTS: [u32; 64] = [
                 0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
                 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe,
@@ -131,8 +146,8 @@ pub mod sha256 {
 
                 let mut msg_sch: MsgSch = MsgSch::default();
 
-                // copy 1st chunk into 1st 16 words w[0..15] of the message schedule array
-                // big-endian convention is used when parsing message block data from bytes to words
+                // Copy the block into 1st 16 words w[0..15] of the message schedule.
+                // Big-endian convention is used when parsing message block data from bytes to words
                 unsafe {
                     let mut ptr = buf.as_mut_ptr().add(i) as *mut u32;
                     for j in 0..16 {
@@ -166,7 +181,7 @@ pub mod sha256 {
                 for (i, constant) in SHA256_CONSTANTS.iter().enumerate() {
                     let sigma0: u32 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
                     let sigma1: u32 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
-                    let choice: u32 = (e & f) ^ ((e ^ 0xffffffff) & g);
+                    let choice: u32 = (e & f) ^ ((e ^ u32::MAX) & g);
                     let majority: u32 = (a & b) ^ (a & c) ^ (b & c);
                     let temp1: u32 = h.wrapping_add(sigma1.wrapping_add(
                         choice.wrapping_add(constant.wrapping_add(msg_sch.w[i])),
