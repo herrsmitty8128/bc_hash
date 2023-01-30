@@ -34,7 +34,7 @@ pub mod sha256 {
     impl MsgSch {
         fn new(buf: &mut Vec<u8>, index: usize) -> Self {
             let mut msg_sch = Self::default();
-            msg_sch.update(buf,index);
+            msg_sch.update(buf, index);
             msg_sch
         }
 
@@ -160,7 +160,6 @@ pub mod sha256 {
 
         /// Calculates and returns a new SHA-256 digest from a vector of bytes.
         pub fn from_buffer(buf: &mut Vec<u8>) -> Digest {
-
             // Create a new digest consisting of the first 32 bits of the fractional parts
             // of the square roots of the first 8 primes 2 through 19.
             let mut digest: Digest = Digest::new();
@@ -169,14 +168,8 @@ pub mod sha256 {
             Self::fix_up(buf, buf.len());
 
             // break the message block into 512-bit chunks. This is the "chunk loop"
-            for i in (0..buf.len()).step_by(BLOCK_SIZE) {
-                
-                //if i + BLOCK_SIZE >= buf.len() {
-                //    Self::fix_up(buf, buf.len());
-               // }
-
-                msg_sch.update(buf, i);
-
+            for index in (0..buf.len()).step_by(BLOCK_SIZE) {
+                msg_sch.update(buf, index);
                 digest.update(&mut msg_sch);
             }
 
@@ -211,10 +204,9 @@ pub mod sha256 {
                 let sigma1: u32 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
                 let choice: u32 = (e & f) ^ ((e ^ u32::MAX) & g);
                 let majority: u32 = (a & b) ^ (a & c) ^ (b & c);
-                let temp1: u32 = h
-                    .wrapping_add(sigma1.wrapping_add(
-                        choice.wrapping_add(constant.wrapping_add(msg_sch.w[i])),
-                    ));
+                let temp1: u32 = h.wrapping_add(
+                    sigma1.wrapping_add(choice.wrapping_add(constant.wrapping_add(msg_sch.w[i]))),
+                );
                 let temp2: u32 = sigma0.wrapping_add(majority);
                 // update working variables
                 h = g;
