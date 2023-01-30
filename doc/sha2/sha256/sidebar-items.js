@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Digest","Represents a SHA-256 digest in binary format."]]};
