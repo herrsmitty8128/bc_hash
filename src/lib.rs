@@ -106,8 +106,7 @@ pub mod sha256 {
         }
 
         /// Attempts to create a new sha-256 digest from the string argument. The string must be 64 characters
-        /// in hexidecimal format and exclude the "0x" prefix. Ok(Digest) is returned on success. Err(String)
-        /// is returned on failure.
+        /// in hexidecimal format. Ok(Digest) is returned on success. Err(String) is returned on failure.
         pub fn from_hex_string(string: &str) -> Result<Digest, String> {
             let lower: String = string.to_ascii_lowercase();
             let mut src: &str = lower.trim();
