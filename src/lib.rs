@@ -1,4 +1,3 @@
-
 /// *sha2* is a library of SHA2 algorithms written in Rust.
 pub mod sha256 {
     use std::fs::File;
@@ -144,7 +143,6 @@ pub mod sha256 {
 
             // break the message block into 512-bit chunks. This is the "chunk loop"
             for i in (0..buf.len()).step_by(BLOCK_SIZE) {
-
                 let mut msg_sch: MsgSch = MsgSch::default();
 
                 // Copy the block into 1st 16 words w[0..15] of the message schedule.
@@ -184,9 +182,10 @@ pub mod sha256 {
                     let sigma1: u32 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
                     let choice: u32 = (e & f) ^ ((e ^ u32::MAX) & g);
                     let majority: u32 = (a & b) ^ (a & c) ^ (b & c);
-                    let temp1: u32 = h.wrapping_add(sigma1.wrapping_add(
-                        choice.wrapping_add(constant.wrapping_add(msg_sch.w[i])),
-                    ));
+                    let temp1: u32 = h
+                        .wrapping_add(sigma1.wrapping_add(
+                            choice.wrapping_add(constant.wrapping_add(msg_sch.w[i])),
+                        ));
                     let temp2: u32 = sigma0.wrapping_add(majority);
                     // update working variables
                     h = g;
