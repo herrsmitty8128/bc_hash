@@ -1,4 +1,5 @@
 
+/// *sha2* is a library of SHA2 algorithms written in Rust.
 pub mod sha256 {
     use std::fs::File;
     use std::io::{BufReader, Read};
