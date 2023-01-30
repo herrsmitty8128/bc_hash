@@ -166,12 +166,14 @@ pub mod sha256 {
             let mut digest: Digest = Digest::new();
             let mut msg_sch: MsgSch = MsgSch::default();
 
+            Self::fix_up(buf, buf.len());
+
             // break the message block into 512-bit chunks. This is the "chunk loop"
             for i in (0..buf.len()).step_by(BLOCK_SIZE) {
                 
-                if i + BLOCK_SIZE >= buf.len() {
-                    Self::fix_up(buf, buf.len());
-                }
+                //if i + BLOCK_SIZE >= buf.len() {
+                //    Self::fix_up(buf, buf.len());
+               // }
 
                 msg_sch.update(buf, i);
 
