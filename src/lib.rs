@@ -2,6 +2,7 @@
 pub mod sha256 {
     use std::fs::File;
     use std::io::{BufReader, Read};
+    use std::cmp::Ordering;
 
     /// number of bytes in a 512-bit block
     const BLOCK_SIZE: usize = 512 / 8;
@@ -115,10 +116,10 @@ pub mod sha256 {
                 src = s
             }
             match src.len().cmp(&64) {
-                std::cmp::Ordering::Greater => {
+                Ordering::Greater => {
                     Err(String::from("String is longer then 64 characters."))
                 }
-                std::cmp::Ordering::Less => {
+                Ordering::Less => {
                     Err(String::from("String is shorter then 64 characters."))
                 }
                 _ => {
