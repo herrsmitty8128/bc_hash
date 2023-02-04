@@ -6,7 +6,7 @@ pub mod sha256 {
 
     /// number of bytes in a 512-bit block
     const BLOCK_SIZE: usize = 512 / 8;
-
+    
     /// The first 32 bits of the fractional parts of the cube roots of the first 64 primes 2 through 311.
     const CONSTANTS: [u32; 64] = [
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
@@ -45,6 +45,9 @@ pub mod sha256 {
             }
         }
     }
+
+    /// The number of bytes in a SHA-256 digest.
+    pub const DIGEST_BYTES: usize = 8 * std::mem::size_of::<u32>();
 
     #[derive(Debug, Clone)]
     /// Represents a SHA-256 digest in binary format.
