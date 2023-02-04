@@ -1,8 +1,8 @@
 /// *sha2* is a library of SHA2 algorithms written in Rust.
 pub mod sha256 {
+    use std::cmp::Ordering;
     use std::fs::File;
     use std::io::{BufReader, Read};
-    use std::cmp::Ordering;
 
     /// number of bytes in a 512-bit block
     const BLOCK_SIZE: usize = 512 / 8;
@@ -116,18 +116,13 @@ pub mod sha256 {
                 src = s
             }
             match src.len().cmp(&64) {
-                Ordering::Greater => {
-                    Err(String::from("String is longer then 64 characters."))
-                }
-                Ordering::Less => {
-                    Err(String::from("String is shorter then 64 characters."))
-                }
+                Ordering::Greater => Err(String::from("String is longer then 64 characters.")),
+                Ordering::Less => Err(String::from("String is shorter then 64 characters.")),
                 _ => {
                     let mut digest = Digest::new();
-                    for i in 0..8 {
-                        let offset: usize = i * 8;
+                    for offset in (0..64).step_by(8) {
                         match u32::from_str_radix(&src[offset..(offset + 8)], 16) {
-                            Ok(d) => digest.data[i] = d,
+                            Ok(d) => digest.data[offset] = d,
                             Err(e) => return Err(e.to_string()),
                         }
                     }
