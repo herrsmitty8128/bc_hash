@@ -46,20 +46,23 @@ pub mod sha256 {
         }
     }
 
+    /// The number of u32 values in a SHA-256 digest.
+    pub const DIGEST_WORDS: usize = 8;
+
     /// The number of bytes in a SHA-256 digest.
-    pub const DIGEST_BYTES: usize = 8 * std::mem::size_of::<u32>();
+    pub const DIGEST_BYTES: usize = DIGEST_WORDS * std::mem::size_of::<u32>();
 
     #[derive(Debug, Clone)]
     /// Represents a SHA-256 digest in binary format.
     pub struct Digest {
-        data: [u32; 8],
+        data: [u32; DIGEST_WORDS],
     }
 
     impl Eq for Digest {}
 
     impl PartialEq for Digest {
         fn eq(&self, other: &Self) -> bool {
-            for i in 0..8 {
+            for i in 0..DIGEST_WORDS {
                 if self.data[i] != other.data[i] {
                     return false;
                 }
@@ -95,34 +98,35 @@ pub mod sha256 {
 
         /// Creates a new digest by cloning the buffer. If buffer.len() is not equal to 32, the Err(()) will be returned. Otherwise, Ok(Digest) will be returned.
         pub fn with_slice(buffer: &[u8]) -> Result<Digest, String> {
-            let mut digest: Digest = Digest { data: [0; 8] };
-            if buffer.len() == 32 {
-                for i in 0..8 {
+            let mut digest: Digest = Digest { data: [0; DIGEST_WORDS] };
+            if buffer.len() == DIGEST_BYTES {
+                for i in 0..DIGEST_WORDS {
                     unsafe { digest.data[i] = *(buffer.as_ptr().add(i * 4) as *const u32) };
                 }
                 Ok(digest)
             } else {
                 Err(format!(
-                    "Found slice &[u8] with length {}, expected length 32.",
-                    buffer.len()
+                    "Found slice &[u8] with length {}, expected length {}.",
+                    buffer.len(),
+                    DIGEST_BYTES
                 ))
             }
         }
 
         /// Writes the contents of the digest's data array [u32] into the buffer [u8]. Buffer.len() must equal 32.
         pub fn write_to_slice(&mut self, buffer: &mut [u8]) -> Result<(), String> {
-            if buffer.len() == 32 {
+            if buffer.len() == DIGEST_BYTES {
                 unsafe {
                     let mut ptr: *mut u8 = self.data.as_mut_ptr() as *mut u8;
-                    for item in buffer.iter_mut().take(32) {
+                    for item in buffer.iter_mut().take(DIGEST_BYTES) {
                         *item = *ptr;
                         ptr = ptr.add(1);
                     }
                 }
                 Ok(())
             } else {
-                Err(String::from(
-                    "Slice length is not equal to the required length of 32 bytes.",
+                Err(format!(
+                    "Slice length is not equal to the required length of {} bytes.", DIGEST_BYTES,
                 ))
             }
         }
