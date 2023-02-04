@@ -90,6 +90,40 @@ pub mod sha256 {
             }
         }
 
+        /// Creates a new digest by cloning the buffer. If buffer.len() is not equal to 32, the Err(()) will be returned. Otherwise, Ok(Digest) will be returned.
+        pub fn with_slice(buffer: &[u8]) -> Result<Digest, String> {
+            let mut digest: Digest = Digest { data: [0; 8] };
+            if buffer.len() == 32 {
+                for i in 0..8 {
+                    unsafe { digest.data[i] = *(buffer.as_ptr().add(i * 4) as *const u32) };
+                }
+                Ok(digest)
+            } else {
+                Err(format!(
+                    "Found slice &[u8] with length {}, expected length 32.",
+                    buffer.len()
+                ))
+            }
+        }
+
+        /// Writes the contents of the digest's data array [u32] into the buffer [u8]. Buffer.len() must equal 32.
+        pub fn write_to_slice(&mut self, buffer: &mut [u8]) -> Result<(), String> {
+            if buffer.len() == 32 {
+                unsafe {
+                    let mut ptr: *mut u8 = self.data.as_mut_ptr() as *mut u8;
+                    for item in buffer.iter_mut().take(32) {
+                        *item = *ptr;
+                        ptr = ptr.add(1);
+                    }
+                }
+                Ok(())
+            } else {
+                Err(String::from(
+                    "Slice length is not equal to the required length of 32 bytes.",
+                ))
+            }
+        }
+
         /// Prints the text representation of the digest in hexidecimal format to stdio.
         pub fn print_as_hex(&self) {
             for x in self.data {
