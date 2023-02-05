@@ -6,7 +6,7 @@ pub mod sha256 {
 
     /// number of bytes in a 512-bit block
     const BLOCK_SIZE: usize = 512 / 8;
-    
+
     /// The first 32 bits of the fractional parts of the cube roots of the first 64 primes 2 through 311.
     const CONSTANTS: [u32; 64] = [
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
@@ -98,7 +98,9 @@ pub mod sha256 {
 
         /// Creates a new digest by cloning the buffer. If buffer.len() is not equal to 32, the Err(()) will be returned. Otherwise, Ok(Digest) will be returned.
         pub fn with_slice(buffer: &[u8]) -> Result<Digest, String> {
-            let mut digest: Digest = Digest { data: [0; DIGEST_WORDS] };
+            let mut digest: Digest = Digest {
+                data: [0; DIGEST_WORDS],
+            };
             if buffer.len() == DIGEST_BYTES {
                 for i in 0..DIGEST_WORDS {
                     unsafe { digest.data[i] = *(buffer.as_ptr().add(i * 4) as *const u32) };
@@ -126,7 +128,8 @@ pub mod sha256 {
                 Ok(())
             } else {
                 Err(format!(
-                    "Slice length is not equal to the required length of {} bytes.", DIGEST_BYTES,
+                    "Slice length is not equal to the required length of {} bytes.",
+                    DIGEST_BYTES,
                 ))
             }
         }
