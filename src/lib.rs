@@ -3,6 +3,7 @@ pub mod sha256 {
     use std::cmp::Ordering;
     use std::fs::File;
     use std::io::{BufReader, Read};
+    use std::io::Result as ioResult;
 
     /// number of bytes in a 512-bit block
     const BLOCK_SIZE: usize = 512 / 8;
@@ -179,18 +180,11 @@ pub mod sha256 {
         /// return a new SHA-256 digest. Ok(Digest) is returned on success. Err(String) is returned
         /// on failure. The *path* argument must contain the path and file name of the file for
         /// which the digest should be calculated.
-        pub fn from_file(path: &String) -> Result<Digest, String> {
-            match File::open(path) {
-                Ok(inner) => {
-                    let mut reader = BufReader::new(inner);
-                    let buf: &mut Vec<u8> = &mut Vec::new();
-                    match reader.read_to_end(buf) {
-                        Ok(_) => Ok(Self::from_buffer(buf)),
-                        Err(e) => Err(e.to_string()),
-                    }
-                }
-                Err(e) => Err(e.to_string()),
-            }
+        pub fn from_file(path: &String) -> ioResult<Digest> {
+            let mut reader = BufReader::new(File::open(path)?);
+            let buf: &mut Vec<u8> = &mut Vec::new();
+            reader.read_to_end(buf)?;
+            Ok(Self::from_buffer(buf))
         }
 
         fn fix_up(buf: &mut Vec<u8>, size: usize) {
