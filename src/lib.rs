@@ -39,7 +39,7 @@ pub mod sha256 {
         pub fn load_block(&mut self, buf: &mut Vec<u8>, index: usize) {
             self.w.fill(0);
             unsafe {
-                let mut ptr = buf.as_mut_ptr().add(index) as *mut u32;
+                let mut ptr: *mut u32 = buf.as_mut_ptr().add(index) as *mut u32;
                 for j in 0..16 {
                     self.w[j] = (*ptr).to_be(); // Covert everything to big-endian
                     ptr = ptr.add(1);
