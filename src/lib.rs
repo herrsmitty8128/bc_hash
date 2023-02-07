@@ -1,9 +1,10 @@
 /// *sha2* is a library of SHA2 algorithms written in Rust.
 pub mod sha256 {
-    use std::cmp::Ordering;
+    //use std::cmp::Ordering;
     use std::fs::File;
-    use std::io::{BufReader, Read};
-    use std::io::Result as ioResult;
+    use std::io::{BufReader, Read}; //, ErrorKind};
+    //use std::num::ParseIntError;
+    use std::ptr::copy_nonoverlapping;
 
     /// number of bytes in a 512-bit block
     const BLOCK_SIZE: usize = 512 / 8;
@@ -81,14 +82,6 @@ pub mod sha256 {
         /// Creates a new SHA-256 digest initialized with the first 32 bits of the
         /// fractional parts of the square roots of the first 8 primes, 2 through 19.
         fn default() -> Self {
-            Self::new()
-        }
-    }
-
-    impl Digest {
-        /// Creates a new SHA-256 digest initialized with the first 32 bits of the
-        /// fractional parts of the square roots of the first 8 primes, 2 through 19.
-        pub fn new() -> Self {
             Self {
                 data: [
                     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c,
@@ -96,9 +89,11 @@ pub mod sha256 {
                 ],
             }
         }
+    }
 
+    impl Digest {
         /// Creates a new digest by cloning the buffer. If buffer.len() is not equal to 32, the Err(()) will be returned. Otherwise, Ok(Digest) will be returned.
-        pub fn with_slice(buffer: &[u8]) -> Result<Digest, String> {
+        pub fn new(buffer: &[u8]) -> Result<Digest, String> {
             let mut digest: Digest = Digest {
                 data: [0; DIGEST_WORDS],
             };
@@ -120,11 +115,12 @@ pub mod sha256 {
         pub fn write_to_slice(&mut self, buffer: &mut [u8]) -> Result<(), String> {
             if buffer.len() == DIGEST_BYTES {
                 unsafe {
-                    let mut ptr: *mut u8 = self.data.as_mut_ptr() as *mut u8;
+                    copy_nonoverlapping(self.data.as_ptr() as *mut u8, buffer.as_mut_ptr(), DIGEST_BYTES);
+                    /*let mut ptr: *mut u8 = self.data.as_mut_ptr() as *mut u8;
                     for item in buffer.iter_mut().take(DIGEST_BYTES) {
                         *item = *ptr;
                         ptr = ptr.add(1);
-                    }
+                    }*/
                 }
                 Ok(())
             } else {
@@ -155,13 +151,22 @@ pub mod sha256 {
         /// in hexidecimal format and may include the "0x" prefix. Ok(Digest) is returned on success. Err(String)
         /// is returned on failure.
         pub fn from_hex_string(string: &str) -> Result<Digest, String> {
-            let lower: String = string.to_ascii_lowercase();
-            let mut src: &str = lower.trim();
+            let s: String = string.to_ascii_lowercase();
+            let mut src: &str = s.trim();
             if let Some(s) = src.strip_prefix("0x") {
                 src = s
             }
-            match src.len().cmp(&64) {
-                Ordering::Greater => Err(String::from("String is longer then 64 characters.")),
+            if src.len() == 64 {
+                let mut digest = Digest::default();
+                for offset in (0..64).step_by(8) {
+                    digest.data[offset] = u32::from_str_radix(&src[offset..(offset + 8)], 16).or(Err(String::from("Error parsing hex string.")))?;
+                }
+                Ok(digest)
+            } else {
+                Err(String::from("String.len() must equal 64."))
+            }
+            /*match src.len().cmp(&64) {
+                Ordering::Greater => Err(), //String::from("String is longer then 64 characters.")),
                 Ordering::Less => Err(String::from("String is shorter then 64 characters.")),
                 _ => {
                     let mut digest = Digest::new();
@@ -173,15 +178,15 @@ pub mod sha256 {
                     }
                     Ok(digest)
                 }
-            }
+            }*/
         }
 
         /// Attempts to open a file, read all of its contents into a buffer, then calculate and
         /// return a new SHA-256 digest. Ok(Digest) is returned on success. Err(String) is returned
         /// on failure. The *path* argument must contain the path and file name of the file for
         /// which the digest should be calculated.
-        pub fn from_file(path: &String) -> ioResult<Digest> {
-            let mut reader = BufReader::new(File::open(path)?);
+        pub fn from_file(path: &String) -> std::io::Result<Digest> {
+            let mut reader:BufReader<File> = BufReader::new(File::open(path)?);
             let buf: &mut Vec<u8> = &mut Vec::new();
             reader.read_to_end(buf)?;
             Ok(Self::from_buffer(buf))
@@ -206,7 +211,7 @@ pub mod sha256 {
 
         /// Calculates and returns a new SHA-256 digest from a vector of bytes.
         pub fn from_buffer(buf: &mut Vec<u8>) -> Digest {
-            let mut digest: Digest = Digest::new();
+            let mut digest: Digest = Digest::default();
             let mut msg_sch: MsgSch = MsgSch::default();
             Self::fix_up(buf, buf.len());
             // break the message block into 512-bit chunks. This is the "chunk loop"
