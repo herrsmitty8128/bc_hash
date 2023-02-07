@@ -159,7 +159,8 @@ pub mod sha256 {
             if src.len() == 64 {
                 let mut digest = Digest::default();
                 for offset in (0..64).step_by(8) {
-                    digest.data[offset] = u32::from_str_radix(&src[offset..(offset + 8)], 16).or(Err(String::from("Error parsing hex string.")))?;
+                    //digest.data[offset] = u32::from_str_radix(&src[offset..(offset + 8)], 16).or_else(|_|{Err(String::from("Error parsing hex string."))})?;
+                    digest.data[offset] = u32::from_str_radix(&src[offset..(offset + 8)], 16).map_err(|_| String::from("Error parsing hex string."))?;
                 }
                 Ok(digest)
             } else {
