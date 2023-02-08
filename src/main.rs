@@ -15,7 +15,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("{}", hex_string2);
 
     let bytes = digest2.as_bytes()?;
-    println!("{:?}",bytes);
+    let digest3: Digest = Digest::new(bytes)?;
+    digest3.print_as_hex();
+
+    println!();
 
     Ok(())
 }
