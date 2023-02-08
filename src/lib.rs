@@ -92,9 +92,6 @@ pub mod sha256 {
                 let digest: Digest = Digest {
                     data: [0; DIGEST_WORDS],
                 };
-                /*for i in 0..DIGEST_WORDS {
-                    unsafe { digest.data[i] = *(buffer.as_ptr().add(i * 4) as *const u32) };
-                }*/
                 unsafe {
                     copy_nonoverlapping(
                         buffer.as_ptr(),
@@ -129,30 +126,6 @@ pub mod sha256 {
                 Err("Failed to properly align the data buffer.")
             }
         }
-
-        /* /// Writes the contents of the digest's data array [u32] into the buffer [u8]. Buffer.len() must equal 32.
-        pub fn write_to_slice(&mut self, buffer: &mut [u8]) -> Result<(), String> {
-            if buffer.len() >= DIGEST_BYTES {
-                unsafe {
-                    copy_nonoverlapping(
-                        self.data.as_ptr() as *mut u8,
-                        buffer.as_mut_ptr(),
-                        DIGEST_BYTES,
-                    );
-                    //let mut ptr: *mut u8 = self.data.as_mut_ptr() as *mut u8;
-                    //for item in buffer.iter_mut().take(DIGEST_BYTES) {
-                    //    *item = *ptr;
-                    //    ptr = ptr.add(1);
-                    //}
-                }
-                Ok(())
-            } else {
-                Err(format!(
-                    "Slice length is not greater than or equal to the minimum required length of {} bytes.",
-                    DIGEST_BYTES,
-                ))
-            }
-        }*/
 
         /// Prints the text representation of the digest in hexidecimal format to stdio.
         pub fn print_as_hex(&self) {
