@@ -1,9 +1,7 @@
 /// *sha2* is a library of SHA2 algorithms written in Rust.
 pub mod sha256 {
-    //use std::cmp::Ordering;
     use std::fs::File;
     use std::io::{BufReader, Read}; //, ErrorKind};
-    //use std::num::ParseIntError;
     use std::ptr::copy_nonoverlapping;
 
     /// number of bytes in a 512-bit block
@@ -79,57 +77,82 @@ pub mod sha256 {
     }
 
     impl Default for Digest {
-        /// Creates a new SHA-256 digest initialized with the first 32 bits of the
-        /// fractional parts of the square roots of the first 8 primes, 2 through 19.
+        /// Creates a new SHA-256 digest whose data buffer is initialized with zeros.
         fn default() -> Self {
             Self {
-                data: [
-                    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c,
-                    0x1f83d9ab, 0x5be0cd19,
-                ],
+                data: [0; DIGEST_WORDS],
             }
         }
     }
 
     impl Digest {
-        /// Creates a new digest by cloning the buffer. If buffer.len() is not equal to 32, the Err(()) will be returned. Otherwise, Ok(Digest) will be returned.
+        /// Attempts to create a new digest by cloning the buffer. If buffer.len() is not equal to DIGEST_BYTES, the Err(()) will be returned. Otherwise, Ok(Digest) will be returned.
         pub fn new(buffer: &[u8]) -> Result<Digest, String> {
-            let mut digest: Digest = Digest {
-                data: [0; DIGEST_WORDS],
-            };
-            if buffer.len() == DIGEST_BYTES {
-                for i in 0..DIGEST_WORDS {
+            if buffer.len() >= DIGEST_BYTES {
+                let digest: Digest = Digest {
+                    data: [0; DIGEST_WORDS],
+                };
+                /*for i in 0..DIGEST_WORDS {
                     unsafe { digest.data[i] = *(buffer.as_ptr().add(i * 4) as *const u32) };
+                }*/
+                unsafe {
+                    copy_nonoverlapping(
+                        buffer.as_ptr(),
+                        digest.data.as_ptr() as *mut u8,
+                        DIGEST_BYTES,
+                    );
                 }
                 Ok(digest)
             } else {
                 Err(format!(
-                    "Found slice &[u8] with length {}, expected length {}.",
+                    "Found slice &[u8] with length {}, expected length >= {}.",
                     buffer.len(),
                     DIGEST_BYTES
                 ))
             }
         }
 
-        /// Writes the contents of the digest's data array [u32] into the buffer [u8]. Buffer.len() must equal 32.
+        /// Resets the digest's data buffer to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
+        pub fn reset(&mut self) {
+            self.data = [
+                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+                0x5be0cd19,
+            ];
+        }
+
+        /// Attempts to transmute the digest's underlying buffer from [u32] to &[u8]. Returns Ok(&[u8]) on success or Err(&str) on failure.
+        pub fn as_bytes(&mut self) -> Result<&[u8], &str> {
+            let x = unsafe { self.data.align_to::<u8>() };
+            if x.0.is_empty() && x.1.len() == DIGEST_BYTES && x.2.is_empty() {
+                Ok(x.1)
+            } else {
+                Err("Failed to properly align the data buffer.")
+            }
+        }
+
+        /* /// Writes the contents of the digest's data array [u32] into the buffer [u8]. Buffer.len() must equal 32.
         pub fn write_to_slice(&mut self, buffer: &mut [u8]) -> Result<(), String> {
-            if buffer.len() == DIGEST_BYTES {
+            if buffer.len() >= DIGEST_BYTES {
                 unsafe {
-                    copy_nonoverlapping(self.data.as_ptr() as *mut u8, buffer.as_mut_ptr(), DIGEST_BYTES);
-                    /*let mut ptr: *mut u8 = self.data.as_mut_ptr() as *mut u8;
-                    for item in buffer.iter_mut().take(DIGEST_BYTES) {
-                        *item = *ptr;
-                        ptr = ptr.add(1);
-                    }*/
+                    copy_nonoverlapping(
+                        self.data.as_ptr() as *mut u8,
+                        buffer.as_mut_ptr(),
+                        DIGEST_BYTES,
+                    );
+                    //let mut ptr: *mut u8 = self.data.as_mut_ptr() as *mut u8;
+                    //for item in buffer.iter_mut().take(DIGEST_BYTES) {
+                    //    *item = *ptr;
+                    //    ptr = ptr.add(1);
+                    //}
                 }
                 Ok(())
             } else {
                 Err(format!(
-                    "Slice length is not equal to the required length of {} bytes.",
+                    "Slice length is not greater than or equal to the minimum required length of {} bytes.",
                     DIGEST_BYTES,
                 ))
             }
-        }
+        }*/
 
         /// Prints the text representation of the digest in hexidecimal format to stdio.
         pub fn print_as_hex(&self) {
@@ -142,7 +165,7 @@ pub mod sha256 {
         pub fn to_hex_string(&self) -> String {
             let mut dst: String = String::new();
             for n in self.data {
-                dst.push_str(&format!("{:x}", n));
+                dst.push_str(&format!("{:08x}", n));
             }
             dst
         }
@@ -158,43 +181,32 @@ pub mod sha256 {
             }
             if src.len() == 64 {
                 let mut digest = Digest::default();
-                for offset in (0..64).step_by(8) {
-                    //digest.data[offset] = u32::from_str_radix(&src[offset..(offset + 8)], 16).or_else(|_|{Err(String::from("Error parsing hex string."))})?;
-                    digest.data[offset] = u32::from_str_radix(&src[offset..(offset + 8)], 16).map_err(|_| String::from("Error parsing hex string."))?;
+                for (i, offset) in (0..64).step_by(8).enumerate() {
+                    digest.data[i] = u32::from_str_radix(&src[offset..(offset + 8)], 16)
+                        .map_err(|_| String::from("Error parsing hex string."))?;
                 }
                 Ok(digest)
             } else {
-                Err(String::from("String.len() must equal 64."))
+                Err(format!(
+                    "Found string length {}, expected length 64.",
+                    string.len()
+                ))
             }
-            /*match src.len().cmp(&64) {
-                Ordering::Greater => Err(), //String::from("String is longer then 64 characters.")),
-                Ordering::Less => Err(String::from("String is shorter then 64 characters.")),
-                _ => {
-                    let mut digest = Digest::new();
-                    for offset in (0..64).step_by(8) {
-                        match u32::from_str_radix(&src[offset..(offset + 8)], 16) {
-                            Ok(d) => digest.data[offset] = d,
-                            Err(e) => return Err(e.to_string()),
-                        }
-                    }
-                    Ok(digest)
-                }
-            }*/
         }
 
         /// Attempts to open a file, read all of its contents into a buffer, then calculate and
-        /// return a new SHA-256 digest. Ok(Digest) is returned on success. Err(String) is returned
+        /// return a new SHA-256 digest. Ok(Digest) is returned on success. Err(io::Error) is returned
         /// on failure. The *path* argument must contain the path and file name of the file for
         /// which the digest should be calculated.
         pub fn from_file(path: &String) -> std::io::Result<Digest> {
-            let mut reader:BufReader<File> = BufReader::new(File::open(path)?);
+            let mut reader: BufReader<File> = BufReader::new(File::open(path)?);
             let buf: &mut Vec<u8> = &mut Vec::new();
             reader.read_to_end(buf)?;
             Ok(Self::from_buffer(buf))
         }
 
         fn fix_up(buf: &mut Vec<u8>, size: usize) {
-            // convert the size of the data into an array of bytes in big endian format
+            // convert the bit count of the buffer into an array of bytes in big endian format
             let original_bit_count: [u8; 8] = ((size * 8) as u64).to_be_bytes();
 
             // append a single "1"
@@ -205,14 +217,13 @@ pub mod sha256 {
                 buf.push(0u8);
             }
 
-            // Append 64 bits to the end, where the 64 bits are a big-endian
-            // integer representing the length of the original input in binary.
+            // append the bit count.
             buf.extend_from_slice(&original_bit_count);
         }
 
-        /// Calculates and returns a new SHA-256 digest from a vector of bytes.
-        pub fn from_buffer(buf: &mut Vec<u8>) -> Digest {
-            let mut digest: Digest = Digest::default();
+        /// Calculates the SHA-256 digest from a vector of bytes and writes it to the data buffer for *digest*.
+        pub fn from_buffer_and_digest(digest: &mut Digest, buf: &mut Vec<u8>) {
+            digest.reset();
             let mut msg_sch: MsgSch = MsgSch::default();
             Self::fix_up(buf, buf.len());
             // break the message block into 512-bit chunks. This is the "chunk loop"
@@ -220,6 +231,12 @@ pub mod sha256 {
                 msg_sch.load_block(buf, index);
                 digest.update(&mut msg_sch);
             }
+        }
+
+        /// Calculates and returns a new SHA-256 digest from a vector of bytes.
+        pub fn from_buffer(buf: &mut Vec<u8>) -> Digest {
+            let mut digest: Digest = Digest::default();
+            Self::from_buffer_and_digest(&mut digest, buf);
             digest
         }
 
