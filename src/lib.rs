@@ -86,7 +86,7 @@ pub mod sha256 {
     }
 
     impl Digest {
-        /// Attempts to create a new digest by cloning the buffer. If buffer.len() is not equal to DIGEST_BYTES, the Err(()) will be returned. Otherwise, Ok(Digest) will be returned.
+        /// Attempts to create a new digest by cloning the buffer. If buffer.len() is not greater than or equal to DIGEST_BYTES, the Err(()) will be returned. Otherwise, Ok(Digest) will be returned.
         pub fn new(buffer: &[u8]) -> Result<Digest, String> {
             if buffer.len() >= DIGEST_BYTES {
                 let digest: Digest = Digest {
@@ -119,7 +119,7 @@ pub mod sha256 {
 
         /// Attempts to transmute the digest's underlying buffer from [u32] to &[u8]. Returns Ok(&[u8]) on success or Err(&str) on failure.
         pub fn as_bytes(&mut self) -> Result<&[u8], &str> {
-            let x = unsafe { self.data.align_to::<u8>() };
+            let x: (&[u32], &[u8], &[u32]) = unsafe { self.data.align_to::<u8>() };
             if x.0.is_empty() && x.1.len() == DIGEST_BYTES && x.2.is_empty() {
                 Ok(x.1)
             } else {
@@ -194,7 +194,7 @@ pub mod sha256 {
             buf.extend_from_slice(&original_bit_count);
         }
 
-        /// Calculates the SHA-256 digest from a vector of bytes and writes it to the data buffer for *digest*.
+        /// Calculates the SHA-256 digest from a vector of bytes and writes it to the digest's data buffer.
         pub fn from_buffer_and_digest(digest: &mut Digest, buf: &mut Vec<u8>) {
             digest.reset();
             let mut msg_sch: MsgSch = MsgSch::default();
