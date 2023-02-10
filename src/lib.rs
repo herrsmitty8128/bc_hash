@@ -84,6 +84,7 @@ pub mod sha256 {
     }
 
     impl Digest {
+        /// Creates a new digest whose buffer is initialized to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
         pub fn new() -> Self {
             Self {
                 data: [
