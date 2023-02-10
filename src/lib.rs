@@ -1,7 +1,7 @@
 /// *sha2* is a library of SHA2 algorithms written in Rust.
 pub mod sha256 {
     use std::fs::File;
-    use std::io::{BufReader, Read}; //, ErrorKind};
+    use std::io::{BufReader, Read};
     use std::ptr::copy_nonoverlapping;
 
     /// number of bytes in a 512-bit block
@@ -79,15 +79,22 @@ pub mod sha256 {
     impl Default for Digest {
         /// Creates a new SHA-256 digest whose data buffer is initialized with zeros.
         fn default() -> Self {
-            Self {
-                data: [0; DIGEST_WORDS],
-            }
+            Self::new()
         }
     }
 
     impl Digest {
+        pub fn new() -> Self {
+            Self {
+                data: [
+                    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c,
+                    0x1f83d9ab, 0x5be0cd19,
+                ],
+            }
+        }
+
         /// Attempts to create a new digest by cloning the buffer. If buffer.len() is not greater than or equal to DIGEST_BYTES, the Err(()) will be returned. Otherwise, Ok(Digest) will be returned.
-        pub fn new(buffer: &[u8]) -> Result<Digest, String> {
+        pub fn from_bytes(buffer: &[u8]) -> Result<Digest, String> {
             if buffer.len() >= DIGEST_BYTES {
                 let digest: Digest = Digest {
                     data: [0; DIGEST_WORDS],
