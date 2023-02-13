@@ -5,7 +5,7 @@ use std::path::Path;
 fn main() -> Result<(), Box<dyn Error>> {
     let path: &Path = Path::new("./src/lib.rs");
     let digest: Digest = Digest::try_from(path)?;
-    digest.print_as_hex();
+    digest.print();
 
     let hex_string = digest.to_string();
     println!("\n{}", hex_string);
@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let bytes = digest2.as_bytes()?;
     let digest3: Digest = Digest::from_bytes(bytes)?;
-    digest3.print_as_hex();
+    digest3.print();
 
     println!();
 

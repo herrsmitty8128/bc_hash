@@ -5,6 +5,12 @@ pub mod sha256 {
     use std::path::Path;
     use std::ptr::copy_nonoverlapping;
 
+    /// The number of u32 values in a SHA-256 digest.
+    pub const DIGEST_WORDS: usize = 8;
+
+    /// The number of bytes in a SHA-256 digest.
+    pub const DIGEST_BYTES: usize = DIGEST_WORDS * std::mem::size_of::<u32>();
+
     /// number of bytes in a 512-bit block
     const BLOCK_SIZE: usize = 512 / 8;
 
@@ -20,6 +26,12 @@ pub mod sha256 {
         0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
         0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
         0xc67178f2,
+    ];
+
+    /// Array used to initialize a digest to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
+    const INITIAL_VALUES: [u32; 8] = [
+        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+        0x5be0cd19,
     ];
 
     /// Represents the message schedule buffer used in the processing of the SHA-256 algorithm.
@@ -46,12 +58,6 @@ pub mod sha256 {
             }
         }
     }
-
-    /// The number of u32 values in a SHA-256 digest.
-    pub const DIGEST_WORDS: usize = 8;
-
-    /// The number of bytes in a SHA-256 digest.
-    pub const DIGEST_BYTES: usize = DIGEST_WORDS * std::mem::size_of::<u32>();
 
     #[derive(Debug, Clone)]
     /// Represents a SHA-256 digest in binary format.
@@ -152,10 +158,7 @@ pub mod sha256 {
         /// Creates a new digest whose buffer is initialized to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
         pub fn new() -> Self {
             Self {
-                data: [
-                    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c,
-                    0x1f83d9ab, 0x5be0cd19,
-                ],
+                data: INITIAL_VALUES,
             }
         }
 
@@ -184,10 +187,7 @@ pub mod sha256 {
 
         /// Resets the digest's data buffer to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
         pub fn reset(&mut self) {
-            self.data = [
-                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
-                0x5be0cd19,
-            ];
+            self.data = INITIAL_VALUES;
         }
 
         /// Attempts to transmute the digest's underlying buffer from [u32] to &[u8]. Returns Ok(&[u8]) on success or Err(&str) on failure.
@@ -200,8 +200,8 @@ pub mod sha256 {
             }
         }
 
-        /// Prints the text representation of the digest in hexidecimal format to stdio.
-        pub fn print_as_hex(&self) {
+        /// A convenience function to print the text representation of the digest in hexidecimal format to stdio.
+        pub fn print(&self) {
             for x in self.data {
                 print!("{:08x}", x);
             }
