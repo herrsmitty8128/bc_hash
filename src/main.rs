@@ -1,15 +1,16 @@
 use sha2::sha256::Digest;
 use std::error::Error;
+use std::path::Path;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let path: String = String::from("./src/lib.rs");
-    let digest: Digest = Digest::from_file(&path)?;
+    let path: &Path = Path::new("./src/lib.rs");
+    let digest: Digest = Digest::try_from(path)?;
     digest.print_as_hex();
 
     let hex_string = digest.to_hex_string();
     println!("\n{}", hex_string);
 
-    let mut digest2: Digest = Digest::from_hex_string(hex_string.as_str())?;
+    let mut digest2: Digest = Digest::try_from(hex_string.as_str())?;
     let hex_string2: String = digest2.to_hex_string();
     println!("{}", hex_string2);
 

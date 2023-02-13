@@ -2,6 +2,7 @@
 pub mod sha256 {
     use std::fs::File;
     use std::io::{BufReader, Read};
+    use std::path::Path;
     use std::ptr::copy_nonoverlapping;
 
     /// number of bytes in a 512-bit block
@@ -83,6 +84,60 @@ pub mod sha256 {
         }
     }
 
+    impl TryFrom<&Path> for Digest {
+        type Error = std::io::Error;
+        /// Attempts to open a file, read all of its contents into a buffer, then calculate and
+        /// return a new SHA-256 digest. Ok(Digest) is returned on success. Err(io::Error) is returned
+        /// on failure. The *path* argument must contain the path and file name of the file for
+        /// which the digest should be calculated.
+        fn try_from(path: &Path) -> Result<Self, Self::Error> {
+            let mut reader: BufReader<File> = BufReader::new(File::open(path)?);
+            let buf: &mut Vec<u8> = &mut Vec::new();
+            reader.read_to_end(buf)?;
+            Ok(Self::from(buf))
+        }
+    }
+
+    impl TryFrom<&str> for Digest {
+        type Error = &'static str;
+        /// Attempts to create a new sha-256 digest from the string argument. The string must be 64 characters
+        /// in hexidecimal format and may include the "0x" prefix. Ok(Digest) is returned on success. Err(String)
+        /// is returned on failure.
+        fn try_from(string: &str) -> Result<Self, &'static str> {
+            let s: String = string.to_ascii_lowercase();
+            let mut src: &str = s.trim();
+            if let Some(s) = src.strip_prefix("0x") {
+                src = s
+            }
+            if src.len() == 64 {
+                let mut digest = Digest::default();
+                for (i, offset) in (0..64).step_by(8).enumerate() {
+                    digest.data[i] = u32::from_str_radix(&src[offset..(offset + 8)], 16)
+                        .map_err(|_| "Error parsing hex string.")?;
+                }
+                Ok(digest)
+            } else {
+                Err("Found string length {}, expected length 64.")
+            }
+        }
+    }
+
+    impl From<&[u8]> for Digest {
+        fn from(bytes: &[u8]) -> Self {
+            let mut buf: Vec<u8> = Vec::from(bytes);
+            Self::from(&mut buf)
+        }
+    }
+
+    impl From<&mut Vec<u8>> for Digest {
+        /// Calculates and returns a new SHA-256 digest from a vector of bytes.
+        fn from(buf: &mut Vec<u8>) -> Self {
+            let mut digest: Digest = Digest::default();
+            Self::calculate(&mut digest, buf);
+            digest
+        }
+    }
+
     impl Digest {
         /// Creates a new digest whose buffer is initialized to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
         pub fn new() -> Self {
@@ -151,6 +206,7 @@ pub mod sha256 {
             dst
         }
 
+        /*
         /// Attempts to create a new sha-256 digest from the string argument. The string must be 64 characters
         /// in hexidecimal format and may include the "0x" prefix. Ok(Digest) is returned on success. Err(String)
         /// is returned on failure.
@@ -174,7 +230,9 @@ pub mod sha256 {
                 ))
             }
         }
+        */
 
+        /*
         /// Attempts to open a file, read all of its contents into a buffer, then calculate and
         /// return a new SHA-256 digest. Ok(Digest) is returned on success. Err(io::Error) is returned
         /// on failure. The *path* argument must contain the path and file name of the file for
@@ -185,6 +243,7 @@ pub mod sha256 {
             reader.read_to_end(buf)?;
             Ok(Self::from_buffer(buf))
         }
+        */
 
         fn fix_up(buf: &mut Vec<u8>, size: usize) {
             // convert the bit count of the buffer into an array of bytes in big endian format
@@ -203,7 +262,7 @@ pub mod sha256 {
         }
 
         /// Calculates the SHA-256 digest from a vector of bytes and writes it to the digest's data buffer.
-        pub fn from_buffer_and_digest(digest: &mut Digest, buf: &mut Vec<u8>) {
+        pub fn calculate(digest: &mut Digest, buf: &mut Vec<u8>) {
             digest.reset();
             let mut msg_sch: MsgSch = MsgSch::default();
             Self::fix_up(buf, buf.len());
@@ -214,12 +273,14 @@ pub mod sha256 {
             }
         }
 
+        /*
         /// Calculates and returns a new SHA-256 digest from a vector of bytes.
         pub fn from_buffer(buf: &mut Vec<u8>) -> Digest {
             let mut digest: Digest = Digest::default();
-            Self::from_buffer_and_digest(&mut digest, buf);
+            Self::calculate(&mut digest, buf);
             digest
         }
+        */
 
         /// Updates the value of the digest based on the contents of the message schedule.
         fn update(&mut self, msg_sch: &mut MsgSch) {
