@@ -10,14 +10,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     let hex_string = digest.to_string();
     println!("\n{}", hex_string);
 
-    let mut digest2: Digest = Digest::try_from(hex_string.as_str())?;
-    let hex_string2: String = digest2.to_string();
-    println!("{}", hex_string2);
-    println!("{:?}", digest2);
+    let mut digest: Digest = Digest::try_from(hex_string.as_str())?;
+    let hex_string: String = digest.to_string();
+    println!("{}", hex_string);
+    println!("{:?}", digest);
 
-    let bytes = digest2.as_bytes()?;
-    let digest3: Digest = Digest::from_bytes(bytes)?;
-    digest3.print();
+    let bytes = digest.as_bytes()?;
+    let digest: Digest = Digest::from_bytes(bytes)?;
+    digest.print();
+    println!();
+
+    let mut arr: Vec<u8> = vec![6, 4, 8, 2, 3, 0, 2];
+    println!("Vec.len() = {}", arr.len());
+    println!("{:?}", arr);
+    let digest: Digest = Digest::from(&mut arr);
+    println!("{}", digest.to_string());
+    println!("Vec.len() = {}", arr.len());
+    println!("{:?}", arr);
 
     println!();
 

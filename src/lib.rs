@@ -28,8 +28,8 @@ pub mod sha256 {
         0xc67178f2,
     ];
 
-    /// Array used to initialize a digest to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
-    const INITIAL_VALUES: [u32; 8] = [
+    /// An array used to initialize a digest to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
+    const INITIAL_VALUES: [u32; DIGEST_WORDS] = [
         0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
         0x5be0cd19,
     ];
@@ -91,6 +91,7 @@ pub mod sha256 {
     }
 
     impl ToString for Digest {
+        /// Returns a string consisting of 64-character hexidecimal representation of the digest.
         fn to_string(&self) -> String {
             let mut dst: String = String::new();
             for n in self.data {
@@ -119,7 +120,7 @@ pub mod sha256 {
         /// Attempts to create a new sha-256 digest from the string argument. The string must be 64 characters
         /// in hexidecimal format and may include the "0x" prefix. Ok(Digest) is returned on success. Err(String)
         /// is returned on failure.
-        fn try_from(string: &str) -> Result<Self, &'static str> {
+        fn try_from(string: &str) -> Result<Self, Self::Error> {
             let s: String = string.to_ascii_lowercase();
             let mut src: &str = s.trim();
             if let Some(s) = src.strip_prefix("0x") {
@@ -209,30 +210,34 @@ pub mod sha256 {
 
         /// Calculates the SHA-256 digest from a vector of bytes and writes it to the digest's data buffer.
         pub fn calculate(digest: &mut Digest, buf: &mut Vec<u8>) {
+            let len: usize = buf.len();
             digest.reset();
             let mut msg_sch: MsgSch = MsgSch::default();
-            Self::fix_up(buf, buf.len());
+            Self::will_start_chunk_loop(buf, len);
             // break the message block into 512-bit chunks. This is the "chunk loop"
             for index in (0..buf.len()).step_by(BLOCK_SIZE) {
                 msg_sch.load_block(buf, index);
                 digest.update(&mut msg_sch);
             }
+            Self::did_finish_chunk_loop(buf, len);
         }
 
-        fn fix_up(buf: &mut Vec<u8>, size: usize) {
-            // convert the bit count of the buffer into an array of bytes in big endian format
-            let original_bit_count: [u8; 8] = ((size * 8) as u64).to_be_bytes();
-
-            // append a single "1"
+        fn will_start_chunk_loop(buf: &mut Vec<u8>, len: usize) {
+            // append a single "1" to the buffer
             buf.push(128u8);
 
-            // round to nearest multiple of 512 bits but leave room for the integer size
+            // round the buffer to nearest multiple of 512 bits while leaving room for 8 more bytes
             while (buf.len() + 8) % BLOCK_SIZE != 0 {
                 buf.push(0u8);
             }
 
-            // append the bit count.
-            buf.extend_from_slice(&original_bit_count);
+            // convert the bit count of the buffer into an 8-byte array in big endian format and append it to the buffer
+            buf.extend_from_slice(&((len * 8) as u64).to_be_bytes());
+        }
+
+        fn did_finish_chunk_loop(buf: &mut Vec<u8>, len: usize) {
+            // remove all the bytes that we added to the end of the buffer
+            buf.truncate(len);
         }
 
         /// Updates the value of the digest based on the contents of the message schedule.
