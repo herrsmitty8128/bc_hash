@@ -5,20 +5,19 @@ use std::path::Path;
 fn main() -> Result<(), Box<dyn Error>> {
     let path: &Path = Path::new("./src/lib.rs");
     let digest: Digest = Digest::try_from(path)?;
-    digest.print();
+    println!("{}", digest);
 
     let hex_string = digest.to_string();
-    println!("\n{}", hex_string);
+    println!("{}", hex_string);
 
-    let mut digest: Digest = Digest::try_from(hex_string.as_str())?;
+    let digest: Digest = Digest::try_from(hex_string.as_str())?;
     let hex_string: String = digest.to_string();
     println!("{}", hex_string);
     println!("{:?}", digest);
 
     let bytes = digest.as_bytes()?;
     let digest: Digest = Digest::from_bytes(bytes)?;
-    digest.print();
-    println!();
+    println!("{}", digest);
 
     let mut arr: Vec<u8> = vec![6, 4, 8, 2, 3, 0, 2];
     println!("Vec.len() = {}", arr.len());

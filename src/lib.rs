@@ -1,9 +1,83 @@
-/// *sha2* is a library of SHA2 algorithms written in Rust.
 pub mod sha256 {
+    use std::fmt::Display;
     use std::fs::File;
     use std::io::{BufReader, Read};
     use std::path::Path;
     use std::ptr::copy_nonoverlapping;
+
+    #[derive(Debug, Clone, Copy)]
+    pub enum ParseErrorKind {
+        StringTooLong,
+        StringTooShort,
+        ParseIntError,
+    }
+
+    impl ParseErrorKind {
+        pub(crate) fn as_str(&self) -> &'static str {
+            use ParseErrorKind::*;
+            match self {
+                StringTooLong => "String has too many characters",
+                StringTooShort => "String has too few characters",
+                ParseIntError => "Unspecified ParseIntError",
+            }
+        }
+    }
+
+    #[allow(dead_code)]
+    #[derive(Debug, Clone)]
+    pub struct ParseError {
+        kind: ParseErrorKind,
+        message: String,
+    }
+
+    impl From<std::num::ParseIntError> for ParseError {
+        fn from(e: std::num::ParseIntError) -> Self {
+            use std::num::IntErrorKind::*;
+            match e.kind() {
+                &Empty => Self {
+                    kind: ParseErrorKind::ParseIntError,
+                    message: e.to_string(),
+                },
+                &InvalidDigit => Self {
+                    kind: ParseErrorKind::ParseIntError,
+                    message: e.to_string(),
+                },
+                &NegOverflow => Self {
+                    kind: ParseErrorKind::ParseIntError,
+                    message: e.to_string(),
+                },
+                &PosOverflow => Self {
+                    kind: ParseErrorKind::ParseIntError,
+                    message: e.to_string(),
+                },
+                &Zero => Self {
+                    kind: ParseErrorKind::ParseIntError,
+                    message: e.to_string(),
+                },
+                &_ => Self {
+                    kind: ParseErrorKind::ParseIntError,
+                    message: String::from(ParseErrorKind::ParseIntError.as_str()),
+                },
+            }
+        }
+    }
+
+    impl From<ParseErrorKind> for ParseError {
+        fn from(kind: ParseErrorKind) -> Self {
+            Self {
+                kind,
+                message: String::from(kind.as_str()),
+            }
+        }
+    }
+
+    impl Display for ParseError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(&self.message)
+        }
+    }
+
+    impl std::error::Error for ParseError {}
 
     /// The number of u32 values in a SHA-256 digest.
     pub const DIGEST_WORDS: usize = 8;
@@ -90,14 +164,13 @@ pub mod sha256 {
         }
     }
 
-    impl ToString for Digest {
-        /// Returns a string consisting of 64-character hexidecimal representation of the digest.
-        fn to_string(&self) -> String {
-            let mut dst: String = String::new();
+    impl Display for Digest {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let mut data: String = String::new();
             for n in self.data {
-                dst.push_str(&format!("{:08x}", n));
+                data.push_str(&format!("{:08x}", n));
             }
-            dst
+            f.write_str(&data)
         }
     }
 
@@ -116,7 +189,7 @@ pub mod sha256 {
     }
 
     impl TryFrom<&str> for Digest {
-        type Error = &'static str;
+        type Error = ParseError;
         /// Attempts to create a new sha-256 digest from the string argument. The string must be 64 characters
         /// in hexidecimal format and may include the "0x" prefix. Ok(Digest) is returned on success. Err(String)
         /// is returned on failure.
@@ -126,15 +199,17 @@ pub mod sha256 {
             if let Some(s) = src.strip_prefix("0x") {
                 src = s
             }
-            if src.len() == 64 {
+            let length = src.len();
+            if length > 64 {
+                Err(ParseError::from(ParseErrorKind::StringTooLong))
+            } else if length < 64 {
+                Err(ParseError::from(ParseErrorKind::StringTooShort))
+            } else {
                 let mut digest = Digest::default();
                 for (i, offset) in (0..64).step_by(8).enumerate() {
-                    digest.data[i] = u32::from_str_radix(&src[offset..(offset + 8)], 16)
-                        .map_err(|_| "Error parsing hex string.")?;
+                    digest.data[i] = u32::from_str_radix(&src[offset..(offset + 8)], 16)?
                 }
                 Ok(digest)
-            } else {
-                Err("Found string length {}, expected length 64.")
             }
         }
     }
@@ -192,19 +267,12 @@ pub mod sha256 {
         }
 
         /// Attempts to transmute the digest's underlying buffer from [u32] to &[u8]. Returns Ok(&[u8]) on success or Err(&str) on failure.
-        pub fn as_bytes(&mut self) -> Result<&[u8], &str> {
+        pub fn as_bytes(&self) -> Result<&[u8], &str> {
             let x: (&[u32], &[u8], &[u32]) = unsafe { self.data.align_to::<u8>() };
             if x.0.is_empty() && x.1.len() == DIGEST_BYTES && x.2.is_empty() {
                 Ok(x.1)
             } else {
                 Err("Failed to properly align the data buffer.")
-            }
-        }
-
-        /// A convenience function to print the text representation of the digest in hexidecimal format to stdio.
-        pub fn print(&self) {
-            for x in self.data {
-                print!("{:08x}", x);
             }
         }
 
