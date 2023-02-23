@@ -5,79 +5,45 @@ pub mod sha256 {
     use std::path::Path;
     use std::ptr::copy_nonoverlapping;
 
-    #[derive(Debug, Clone, Copy)]
-    pub enum ParseErrorKind {
+    #[derive(Debug, Clone)]
+    pub enum Sha256Error {
+        BadAlignment,
+        InvalidSliceLength,
         StringTooLong,
         StringTooShort,
-        ParseIntError,
+        ParseError(std::num::ParseIntError),
+        IOError(std::io::ErrorKind)
     }
 
-    impl ParseErrorKind {
-        pub(crate) fn as_str(&self) -> &'static str {
-            use ParseErrorKind::*;
-            match self {
-                StringTooLong => "String has too many characters",
-                StringTooShort => "String has too few characters",
-                ParseIntError => "Unspecified ParseIntError",
-            }
-        }
-    }
-
-    #[allow(dead_code)]
-    #[derive(Debug, Clone)]
-    pub struct ParseError {
-        kind: ParseErrorKind,
-        message: String,
-    }
-
-    impl From<std::num::ParseIntError> for ParseError {
+    impl From<std::num::ParseIntError> for Sha256Error {
         fn from(e: std::num::ParseIntError) -> Self {
-            use std::num::IntErrorKind::*;
-            match e.kind() {
-                &Empty => Self {
-                    kind: ParseErrorKind::ParseIntError,
-                    message: e.to_string(),
-                },
-                &InvalidDigit => Self {
-                    kind: ParseErrorKind::ParseIntError,
-                    message: e.to_string(),
-                },
-                &NegOverflow => Self {
-                    kind: ParseErrorKind::ParseIntError,
-                    message: e.to_string(),
-                },
-                &PosOverflow => Self {
-                    kind: ParseErrorKind::ParseIntError,
-                    message: e.to_string(),
-                },
-                &Zero => Self {
-                    kind: ParseErrorKind::ParseIntError,
-                    message: e.to_string(),
-                },
-                &_ => Self {
-                    kind: ParseErrorKind::ParseIntError,
-                    message: String::from(ParseErrorKind::ParseIntError.as_str()),
-                },
-            }
+            Sha256Error::ParseError(e)
         }
     }
 
-    impl From<ParseErrorKind> for ParseError {
-        fn from(kind: ParseErrorKind) -> Self {
-            Self {
-                kind,
-                message: String::from(kind.as_str()),
-            }
+    impl From<std::io::Error> for Sha256Error {
+        fn from(e: std::io::Error) -> Self {
+            Sha256Error::IOError(e.kind())
         }
     }
 
-    impl Display for ParseError {
+    impl Display for Sha256Error {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_str(&self.message)
+            use Sha256Error::*;
+            match self {
+                BadAlignment => f.write_str("Failed to properly align the data buffer."),
+                InvalidSliceLength => f.write_str("Slice length is invalid"),
+                StringTooLong => f.write_str("String has too many characters"),
+                StringTooShort => f.write_str("String has too few characters"),
+                ParseError(e) => f.write_fmt(format_args!("{}", e.to_string())),
+                IOError(e) => f.write_fmt(format_args!("{}", e.to_string())),
+            }
         }
     }
 
-    impl std::error::Error for ParseError {}
+    impl std::error::Error for Sha256Error {}
+
+    type Result<T> = std::result::Result<T, Sha256Error>;
 
     /// The number of u32 values in a SHA-256 digest.
     pub const DIGEST_WORDS: usize = 8;
@@ -158,7 +124,7 @@ pub mod sha256 {
     }
 
     impl Default for Digest {
-        /// Creates a new SHA-256 digest whose data buffer is initialized with zeros.
+        /// Calls Digest::new().
         fn default() -> Self {
             Self::new()
         }
@@ -175,12 +141,12 @@ pub mod sha256 {
     }
 
     impl TryFrom<&Path> for Digest {
-        type Error = std::io::Error;
+        type Error = Sha256Error;
         /// Attempts to open a file, read all of its contents into a buffer, then calculate and
         /// return a new SHA-256 digest. Ok(Digest) is returned on success. Err(io::Error) is returned
         /// on failure. The *path* argument must contain the path and file name of the file for
         /// which the digest should be calculated.
-        fn try_from(path: &Path) -> Result<Self, Self::Error> {
+        fn try_from(path: &Path) -> std::result::Result<Self, Self::Error> {
             let mut reader: BufReader<File> = BufReader::new(File::open(path)?);
             let buf: &mut Vec<u8> = &mut Vec::new();
             reader.read_to_end(buf)?;
@@ -189,11 +155,11 @@ pub mod sha256 {
     }
 
     impl TryFrom<&str> for Digest {
-        type Error = ParseError;
+        type Error = Sha256Error;
         /// Attempts to create a new sha-256 digest from the string argument. The string must be 64 characters
         /// in hexidecimal format and may include the "0x" prefix. Ok(Digest) is returned on success. Err(String)
         /// is returned on failure.
-        fn try_from(string: &str) -> Result<Self, Self::Error> {
+        fn try_from(string: &str) -> std::result::Result<Self, Self::Error> {
             let s: String = string.to_ascii_lowercase();
             let mut src: &str = s.trim();
             if let Some(s) = src.strip_prefix("0x") {
@@ -201,9 +167,9 @@ pub mod sha256 {
             }
             let length = src.len();
             if length > 64 {
-                Err(ParseError::from(ParseErrorKind::StringTooLong))
+                Err(Sha256Error::StringTooLong)
             } else if length < 64 {
-                Err(ParseError::from(ParseErrorKind::StringTooShort))
+                Err(Sha256Error::StringTooShort)
             } else {
                 let mut digest = Digest::default();
                 for (i, offset) in (0..64).step_by(8).enumerate() {
@@ -216,8 +182,7 @@ pub mod sha256 {
 
     impl From<&[u8]> for Digest {
         fn from(bytes: &[u8]) -> Self {
-            let mut buf: Vec<u8> = Vec::from(bytes);
-            Self::from(&mut buf)
+            Self::from(Vec::from(bytes).as_mut())
         }
     }
 
@@ -239,7 +204,7 @@ pub mod sha256 {
         }
 
         /// Attempts to create a new digest by cloning the buffer. If buffer.len() is not greater than or equal to DIGEST_BYTES, the Err(()) will be returned. Otherwise, Ok(Digest) will be returned.
-        pub fn from_bytes(buffer: &[u8]) -> Result<Digest, String> {
+        pub fn from_bytes(buffer: &[u8]) -> Result<Digest> {
             if buffer.len() >= DIGEST_BYTES {
                 let digest: Digest = Digest {
                     data: [0; DIGEST_WORDS],
@@ -253,11 +218,7 @@ pub mod sha256 {
                 }
                 Ok(digest)
             } else {
-                Err(format!(
-                    "Found slice &[u8] with length {}, expected length >= {}.",
-                    buffer.len(),
-                    DIGEST_BYTES
-                ))
+                Err(Sha256Error::InvalidSliceLength)
             }
         }
 
@@ -267,12 +228,12 @@ pub mod sha256 {
         }
 
         /// Attempts to transmute the digest's underlying buffer from [u32] to &[u8]. Returns Ok(&[u8]) on success or Err(&str) on failure.
-        pub fn as_bytes(&self) -> Result<&[u8], &str> {
+        pub fn as_bytes(&self) -> Result<&[u8]> {
             let x: (&[u32], &[u8], &[u32]) = unsafe { self.data.align_to::<u8>() };
             if x.0.is_empty() && x.1.len() == DIGEST_BYTES && x.2.is_empty() {
                 Ok(x.1)
             } else {
-                Err("Failed to properly align the data buffer.")
+                Err(Sha256Error::BadAlignment)
             }
         }
 
