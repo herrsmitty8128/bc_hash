@@ -12,7 +12,7 @@ pub mod sha256 {
         StringTooLong,
         StringTooShort,
         ParseError(std::num::ParseIntError),
-        IOError(std::io::ErrorKind)
+        IOError(std::io::ErrorKind),
     }
 
     impl From<std::num::ParseIntError> for Sha256Error {
@@ -43,7 +43,7 @@ pub mod sha256 {
 
     impl std::error::Error for Sha256Error {}
 
-    type Result<T> = std::result::Result<T, Sha256Error>;
+    pub type Result<T> = std::result::Result<T, Sha256Error>;
 
     /// The number of u32 values in a SHA-256 digest.
     pub const DIGEST_WORDS: usize = 8;
