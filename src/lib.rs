@@ -205,17 +205,15 @@ pub mod sha256 {
 
         pub fn clone_from_le_bytes(&mut self, bytes: &[u8; 32]) {
             let mut temp: [u8; 4] = [0; 4];
-            for i in 0..8 {
-                let offset: usize = i * 4;
+            for (i, offset) in (0..32).step_by(4).enumerate() {
                 temp.clone_from_slice(&bytes[offset..(offset + 4)]);
                 self.data[i] = u32::from_le_bytes(temp);
             }
         }
 
         pub fn clone_to_le_bytes(&self, bytes: &mut [u8; 32]) {
-            for (i, word) in self.data.iter().enumerate() {
-                let offset: usize = i * 4;
-                bytes[offset..(offset + 4)].clone_from_slice(&word.to_le_bytes());
+            for (i, offset) in (0..32).step_by(4).enumerate() {
+                bytes[offset..(offset + 4)].clone_from_slice(&self.data[i].to_le_bytes());
             }
         }
 
