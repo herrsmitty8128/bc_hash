@@ -1,9 +1,10 @@
 pub mod sha256 {
+    use std::cmp::Ordering;
     use std::fmt::Display;
     use std::fs::File;
     use std::io::{BufReader, Read};
     use std::path::Path;
-    use std::ptr::copy_nonoverlapping;
+    //use std::ptr::copy_nonoverlapping;
 
     #[derive(Debug, Clone)]
     pub enum Sha256Error {
@@ -35,8 +36,8 @@ pub mod sha256 {
                 InvalidSliceLength => f.write_str("Slice length is invalid"),
                 StringTooLong => f.write_str("String has too many characters"),
                 StringTooShort => f.write_str("String has too few characters"),
-                ParseError(e) => f.write_fmt(format_args!("{}", e.to_string())),
-                IOError(e) => f.write_fmt(format_args!("{}", e.to_string())),
+                ParseError(e) => f.write_fmt(format_args!("{}", e)), //.to_string())),
+                IOError(e) => f.write_fmt(format_args!("{}", e)), //.to_string())),
             }
         }
     }
@@ -166,16 +167,16 @@ pub mod sha256 {
                 src = s
             }
             let length = src.len();
-            if length > 64 {
-                Err(Sha256Error::StringTooLong)
-            } else if length < 64 {
-                Err(Sha256Error::StringTooShort)
-            } else {
-                let mut digest = Digest::default();
-                for (i, offset) in (0..64).step_by(8).enumerate() {
-                    digest.data[i] = u32::from_str_radix(&src[offset..(offset + 8)], 16)?
+            match length.cmp(&64) {
+                Ordering::Greater => Err(Sha256Error::StringTooLong),
+                Ordering::Less => Err(Sha256Error::StringTooShort),
+                Ordering::Equal => {
+                    let mut digest = Digest::default();
+                    for (i, offset) in (0..64).step_by(8).enumerate() {
+                        digest.data[i] = u32::from_str_radix(&src[offset..(offset + 8)], 16)?
+                    }
+                    Ok(digest)
                 }
-                Ok(digest)
             }
         }
     }
@@ -203,6 +204,12 @@ pub mod sha256 {
             }
         }
 
+        /// Resets the digest's data buffer to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
+        pub fn reset(&mut self) {
+            self.data = INITIAL_VALUES;
+        }
+
+        /*
         /// Attempts to create a new digest by cloning the buffer. If buffer.len() is not greater than or equal to DIGEST_BYTES, the Err(()) will be returned. Otherwise, Ok(Digest) will be returned.
         pub fn from_bytes(buffer: &[u8]) -> Result<Digest> {
             if buffer.len() >= DIGEST_BYTES {
@@ -222,11 +229,6 @@ pub mod sha256 {
             }
         }
 
-        /// Resets the digest's data buffer to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
-        pub fn reset(&mut self) {
-            self.data = INITIAL_VALUES;
-        }
-
         /// Attempts to transmute the digest's underlying buffer from [u32] to &[u8]. Returns Ok(&[u8]) on success or Err(&str) on failure.
         pub fn as_bytes(&self) -> Result<&[u8]> {
             let x: (&[u32], &[u8], &[u32]) = unsafe { self.data.align_to::<u8>() };
@@ -234,6 +236,23 @@ pub mod sha256 {
                 Ok(x.1)
             } else {
                 Err(Sha256Error::BadAlignment)
+            }
+        }
+        */
+
+        pub fn clone_from_le_bytes(&mut self, bytes: &[u8; 32]) {
+            let mut temp: [u8; 4] = [0; 4];
+            for i in 0..8 {
+                let offset: usize = i * 4;
+                temp.clone_from_slice(&bytes[offset..(offset + 4)]);
+                self.data[i] = u32::from_le_bytes(temp);
+            }
+        }
+
+        pub fn clone_to_le_bytes(&self, bytes: &mut [u8; 32]) {
+            for (i, word) in self.data.iter().enumerate() {
+                let offset: usize = i * 4;
+                bytes[offset..(offset + 4)].clone_from_slice(&word.to_le_bytes());
             }
         }
 
