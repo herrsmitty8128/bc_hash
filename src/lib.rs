@@ -4,10 +4,9 @@ pub mod sha256 {
     use std::fs::File;
     use std::io::{BufReader, Read};
     use std::path::Path;
-    //use std::ptr::copy_nonoverlapping;
 
     #[derive(Debug, Clone)]
-    pub enum Sha256Error {
+    pub enum Error {
         BadAlignment,
         InvalidSliceLength,
         StringTooLong,
@@ -16,44 +15,41 @@ pub mod sha256 {
         IOError(std::io::ErrorKind),
     }
 
-    impl From<std::num::ParseIntError> for Sha256Error {
+    impl From<std::num::ParseIntError> for Error {
         fn from(e: std::num::ParseIntError) -> Self {
-            Sha256Error::ParseError(e)
+            Error::ParseError(e)
         }
     }
 
-    impl From<std::io::Error> for Sha256Error {
+    impl From<std::io::Error> for Error {
         fn from(e: std::io::Error) -> Self {
-            Sha256Error::IOError(e.kind())
+            Error::IOError(e.kind())
         }
     }
 
-    impl Display for Sha256Error {
+    impl Display for Error {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            use Sha256Error::*;
+            use Error::*;
             match self {
                 BadAlignment => f.write_str("Failed to properly align the data buffer."),
                 InvalidSliceLength => f.write_str("Slice length is invalid"),
                 StringTooLong => f.write_str("String has too many characters"),
                 StringTooShort => f.write_str("String has too few characters"),
-                ParseError(e) => f.write_fmt(format_args!("{}", e)), //.to_string())),
-                IOError(e) => f.write_fmt(format_args!("{}", e)), //.to_string())),
+                ParseError(e) => f.write_fmt(format_args!("{}", e)),
+                IOError(e) => f.write_fmt(format_args!("{}", e)),
             }
         }
     }
 
-    impl std::error::Error for Sha256Error {}
+    impl std::error::Error for Error {}
 
-    pub type Result<T> = std::result::Result<T, Sha256Error>;
+    pub type Result<T> = std::result::Result<T, Error>;
 
     /// The number of u32 values in a SHA-256 digest.
     pub const DIGEST_WORDS: usize = 8;
 
     /// The number of bytes in a SHA-256 digest.
     pub const DIGEST_BYTES: usize = DIGEST_WORDS * std::mem::size_of::<u32>();
-
-    /// number of bytes in a 512-bit block
-    const BLOCK_SIZE: usize = 512 / 8;
 
     /// The first 32 bits of the fractional parts of the cube roots of the first 64 primes 2 through 311.
     const CONSTANTS: [u32; 64] = [
@@ -87,16 +83,15 @@ pub mod sha256 {
     }
 
     impl MsgSch {
-        // Copies the 512-bit block from the buffer located at *index* into the 1st 16 words w[0..15] of the message schedule.
-        pub fn load_block(&mut self, buf: &mut Vec<u8>, index: usize) {
-            self.w.fill(0);
-            unsafe {
-                let mut ptr: *mut u32 = buf.as_mut_ptr().add(index) as *mut u32;
-                for j in 0..16 {
-                    self.w[j] = (*ptr).to_be(); // Covert everything to big-endian
-                    ptr = ptr.add(1);
-                }
+        // Copies 64 bytes (512-bits) from *chunk* into the first 16 words of the message schedule. Panics if chunk.len() != 64.
+        fn load(&mut self, chunk: &[u8]) {
+            let mut temp: [u8; 4] = [0; 4];
+            for i in 0..16 {
+                let offset: usize = i * 4;
+                temp.clone_from_slice(&chunk[offset..(offset + 4)]);
+                self.w[i] = u32::from_be_bytes(temp);
             }
+            self.w[16..64].fill(0);
         }
     }
 
@@ -142,7 +137,7 @@ pub mod sha256 {
     }
 
     impl TryFrom<&Path> for Digest {
-        type Error = Sha256Error;
+        type Error = Error;
         /// Attempts to open a file, read all of its contents into a buffer, then calculate and
         /// return a new SHA-256 digest. Ok(Digest) is returned on success. Err(io::Error) is returned
         /// on failure. The *path* argument must contain the path and file name of the file for
@@ -156,7 +151,7 @@ pub mod sha256 {
     }
 
     impl TryFrom<&str> for Digest {
-        type Error = Sha256Error;
+        type Error = Error;
         /// Attempts to create a new sha-256 digest from the string argument. The string must be 64 characters
         /// in hexidecimal format and may include the "0x" prefix. Ok(Digest) is returned on success. Err(String)
         /// is returned on failure.
@@ -166,10 +161,9 @@ pub mod sha256 {
             if let Some(s) = src.strip_prefix("0x") {
                 src = s
             }
-            let length = src.len();
-            match length.cmp(&64) {
-                Ordering::Greater => Err(Sha256Error::StringTooLong),
-                Ordering::Less => Err(Sha256Error::StringTooShort),
+            match src.len().cmp(&64) {
+                Ordering::Greater => Err(Error::StringTooLong),
+                Ordering::Less => Err(Error::StringTooShort),
                 Ordering::Equal => {
                     let mut digest = Digest::default();
                     for (i, offset) in (0..64).step_by(8).enumerate() {
@@ -209,37 +203,6 @@ pub mod sha256 {
             self.data = INITIAL_VALUES;
         }
 
-        /*
-        /// Attempts to create a new digest by cloning the buffer. If buffer.len() is not greater than or equal to DIGEST_BYTES, the Err(()) will be returned. Otherwise, Ok(Digest) will be returned.
-        pub fn from_bytes(buffer: &[u8]) -> Result<Digest> {
-            if buffer.len() >= DIGEST_BYTES {
-                let digest: Digest = Digest {
-                    data: [0; DIGEST_WORDS],
-                };
-                unsafe {
-                    copy_nonoverlapping(
-                        buffer.as_ptr(),
-                        digest.data.as_ptr() as *mut u8,
-                        DIGEST_BYTES,
-                    );
-                }
-                Ok(digest)
-            } else {
-                Err(Sha256Error::InvalidSliceLength)
-            }
-        }
-
-        /// Attempts to transmute the digest's underlying buffer from [u32] to &[u8]. Returns Ok(&[u8]) on success or Err(&str) on failure.
-        pub fn as_bytes(&self) -> Result<&[u8]> {
-            let x: (&[u32], &[u8], &[u32]) = unsafe { self.data.align_to::<u8>() };
-            if x.0.is_empty() && x.1.len() == DIGEST_BYTES && x.2.is_empty() {
-                Ok(x.1)
-            } else {
-                Err(Sha256Error::BadAlignment)
-            }
-        }
-        */
-
         pub fn clone_from_le_bytes(&mut self, bytes: &[u8; 32]) {
             let mut temp: [u8; 4] = [0; 4];
             for i in 0..8 {
@@ -263,8 +226,8 @@ pub mod sha256 {
             let mut msg_sch: MsgSch = MsgSch::default();
             Self::will_start_chunk_loop(buf, len);
             // break the message block into 512-bit chunks. This is the "chunk loop"
-            for index in (0..buf.len()).step_by(BLOCK_SIZE) {
-                msg_sch.load_block(buf, index);
+            for i in (0..buf.len()).step_by(64) {
+                msg_sch.load(&buf[i..(i + 64)]);
                 digest.update(&mut msg_sch);
             }
             Self::did_finish_chunk_loop(buf, len);
@@ -275,7 +238,7 @@ pub mod sha256 {
             buf.push(128u8);
 
             // round the buffer to nearest multiple of 512 bits while leaving room for 8 more bytes
-            while (buf.len() + 8) % BLOCK_SIZE != 0 {
+            while (buf.len() + 8) % 64 != 0 {
                 buf.push(0u8);
             }
 
