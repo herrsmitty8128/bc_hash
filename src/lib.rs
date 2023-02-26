@@ -86,8 +86,7 @@ pub mod sha256 {
         // Copies 64 bytes (512-bits) from *chunk* into the first 16 words of the message schedule. Panics if chunk.len() != 64.
         fn load(&mut self, chunk: &[u8]) {
             let mut temp: [u8; 4] = [0; 4];
-            for i in 0..16 {
-                let offset: usize = i * 4;
+            for (i, offset) in (0..64).step_by(4).enumerate() {
                 temp.clone_from_slice(&chunk[offset..(offset + 4)]);
                 self.w[i] = u32::from_be_bytes(temp);
             }
@@ -137,16 +136,55 @@ pub mod sha256 {
     }
 
     impl TryFrom<&Path> for Digest {
-        type Error = Error;
+        type Error = std::io::Error;
         /// Attempts to open a file, read all of its contents into a buffer, then calculate and
         /// return a new SHA-256 digest. Ok(Digest) is returned on success. Err(io::Error) is returned
         /// on failure. The *path* argument must contain the path and file name of the file for
         /// which the digest should be calculated.
         fn try_from(path: &Path) -> std::result::Result<Self, Self::Error> {
-            let mut reader: BufReader<File> = BufReader::new(File::open(path)?);
-            let buf: &mut Vec<u8> = &mut Vec::new();
-            reader.read_to_end(buf)?;
-            Ok(Self::from(buf))
+            Self::try_from(&File::open(path)?)
+        }
+    }
+
+    impl TryFrom<&File> for Digest {
+        type Error = std::io::Error;
+        fn try_from(file: &File) -> std::result::Result<Self, Self::Error> {
+            let len: usize = file.metadata()?.len() as usize;
+            let mut buffer: Vec<u8> = Vec::new();
+            let mut reader: BufReader<&File> = BufReader::new(file);
+            if len > reader.capacity() {
+                let mut buf: [u8; 1] = [0; 1];
+                let mut cum_read: usize = 0;
+                let mut digest: Digest = Digest::default();
+                let mut msg_sch: MsgSch = MsgSch::default();
+                loop {
+                    let bytes_read: usize = reader.read(&mut buf)?;
+                    cum_read += bytes_read;
+                    if bytes_read > 0 {
+                        buffer.push(buf[0]);
+                        if cum_read >= len {
+                            buffer.push(128u8);
+                            while (buffer.len() + 8) % 64 != 0 {
+                                buffer.push(0u8);
+                            }
+                            buffer.extend(((len * 8) as u64).to_be_bytes());
+                            for i in (0..buffer.len()).step_by(64) {
+                                msg_sch.load(&buffer[i..(i + 64)]);
+                                digest.update(&mut msg_sch);
+                            }
+                            return Ok(digest);
+                        }
+                        if buffer.len() == 64 {
+                            msg_sch.load(&buffer[..]);
+                            digest.update(&mut msg_sch);
+                            buffer.clear();
+                        }
+                    }
+                }
+            } else {
+                reader.read_to_end(&mut buffer)?;
+                Ok(Self::from(&mut buffer))
+            }
         }
     }
 
