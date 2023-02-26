@@ -3,7 +3,7 @@ use std::error::Error;
 use std::path::Path;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let path: &Path = Path::new("/home/chris/Downloads/code_1.75.0-1675266613_amd64.deb"); //./src/lib.rs");
+    let path: &Path = Path::new("/home/chris/Downloads/code_1.75.0-1675266613_amd64.deb"); // "./src/lib.rs"
     println!("{:?}", path.as_os_str());
     let digest: Digest = Digest::try_from(path)?;
     println!("{}", digest);

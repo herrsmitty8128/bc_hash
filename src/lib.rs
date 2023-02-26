@@ -7,8 +7,6 @@ pub mod sha256 {
 
     #[derive(Debug, Clone)]
     pub enum Error {
-        BadAlignment,
-        InvalidSliceLength,
         StringTooLong,
         StringTooShort,
         ParseError(std::num::ParseIntError),
@@ -31,8 +29,6 @@ pub mod sha256 {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             use Error::*;
             match self {
-                BadAlignment => f.write_str("Failed to properly align the data buffer."),
-                InvalidSliceLength => f.write_str("Slice length is invalid"),
                 StringTooLong => f.write_str("String has too many characters"),
                 StringTooShort => f.write_str("String has too few characters"),
                 ParseError(e) => f.write_fmt(format_args!("{}", e)),
@@ -147,7 +143,7 @@ pub mod sha256 {
             let mut buffer: Vec<u8> = Vec::new();
             let mut reader: BufReader<&File> = BufReader::new(file);
             if len > reader.capacity() {
-                let mut buf: [u8; 1] = [0; 1];
+                let mut buf: [u8; 2048] = [0; 2048];
                 let mut cum_read: usize = 0;
                 let mut digest: Digest = Digest::default();
                 let mut msg_sch: MsgSch = MsgSch::default();
@@ -155,16 +151,21 @@ pub mod sha256 {
                     let bytes_read: usize = reader.read(&mut buf)?;
                     cum_read += bytes_read;
                     if bytes_read > 0 {
-                        buffer.push(buf[0]);
+                        buffer.extend_from_slice(&buf[0..bytes_read]);
                         if cum_read >= len {
-                            Self::prep_final_chunk_loop(&mut buffer, len);
-                            Self::chunk_loop(&mut buffer, &mut msg_sch, &mut digest);
+                            Self::chunk_loop(&mut buffer, &mut msg_sch, &mut digest, len);
                             return Ok(digest);
                         }
-                        if buffer.len() == 64 {
-                            msg_sch.load(&buffer[..]);
-                            digest.update(&mut msg_sch);
-                            buffer.clear();
+                        let l: usize = buffer.len();
+                        if l > 64 {
+                            let r: usize = l % 64;
+                            let n: usize = l - r;
+                            for i in (0..n).step_by(64) {
+                                msg_sch.load(&buffer[i..(i + 64)]);
+                                digest.update(&mut msg_sch);
+                            }
+                            buffer.copy_within(n..l, 0);
+                            buffer.truncate(r);
                         }
                     }
                 }
@@ -247,8 +248,7 @@ pub mod sha256 {
             digest.reset();
             let len: usize = buf.len();
             let mut msg_sch: MsgSch = MsgSch::default();
-            Self::prep_final_chunk_loop(buf, len);
-            Self::chunk_loop(buf, &mut msg_sch, digest);
+            Self::chunk_loop(buf, &mut msg_sch, digest, len);
             buf.truncate(len);
         }
 
@@ -256,17 +256,14 @@ pub mod sha256 {
         /// 1.) Appends a single "1" to the buffer
         /// 2.) Rounds the buffer to nearest multiple of 512 bits while leaving room for 8 more bytes
         /// 3.) Converts the bit count of the buffer into an 8-byte array in big endian format and append it to the buffer
-        fn prep_final_chunk_loop(buf: &mut Vec<u8>, len: usize) {
+        /// 4.) Breaks the vector into 512-bit slices used to load the message schedule and update the digest
+        /// This is the "chunk loop".
+        fn chunk_loop(buf: &mut Vec<u8>, msg_sch: &mut MsgSch, digest: &mut Digest, len: usize) {
             buf.push(128u8);
             while (buf.len() + 8) % 64 != 0 {
                 buf.push(0u8);
             }
             buf.extend_from_slice(&((len * 8) as u64).to_be_bytes());
-        }
-
-        /// Breaks the vector into 512-bit slices that are loaded to the message schedule and used to update the digest.
-        /// This is the "chunk loop".
-        fn chunk_loop(buf: &mut Vec<u8>, msg_sch: &mut MsgSch, digest: &mut Digest) {
             for i in (0..buf.len()).step_by(64) {
                 msg_sch.load(&buf[i..(i + 64)]);
                 digest.update(msg_sch);
