@@ -141,12 +141,12 @@ pub mod sha256 {
         fn try_from(file: &File) -> std::result::Result<Self, Self::Error> {
             let len: usize = file.metadata()?.len() as usize;
             let mut buffer: Vec<u8> = Vec::new();
+            let mut digest: Digest = Digest::default();
+            let mut msg_sch: MsgSch = MsgSch::default();
             let mut reader: BufReader<&File> = BufReader::new(file);
             if len > reader.capacity() {
                 let mut buf: [u8; 2048] = [0; 2048];
                 let mut cum_read: usize = 0;
-                let mut digest: Digest = Digest::default();
-                let mut msg_sch: MsgSch = MsgSch::default();
                 loop {
                     let bytes_read: usize = reader.read(&mut buf)?;
                     cum_read += bytes_read;
@@ -171,7 +171,8 @@ pub mod sha256 {
                 }
             } else {
                 reader.read_to_end(&mut buffer)?;
-                Ok(Self::from(&mut buffer))
+                Self::chunk_loop(&mut buffer, &mut msg_sch, &mut digest, len);
+                Ok(digest)
             }
         }
     }
@@ -253,10 +254,10 @@ pub mod sha256 {
         }
 
         /// Performs the following actions:
-        /// 1.) Appends a single "1" to the buffer
-        /// 2.) Rounds the buffer to nearest multiple of 512 bits while leaving room for 8 more bytes
-        /// 3.) Converts the bit count of the buffer into an 8-byte array in big endian format and append it to the buffer
-        /// 4.) Breaks the vector into 512-bit slices used to load the message schedule and update the digest
+        /// 1.) Appends a single "1" to the buffer.
+        /// 2.) Rounds the buffer to nearest multiple of 512 bits while leaving room for 8 more bytes.
+        /// 3.) Converts the bit count of the buffer into an 8-byte array in big endian format and appends it to the buffer.
+        /// 4.) Breaks the vector into 512-bit slices used to load the message schedule and update the digest.
         /// This is the "chunk loop".
         fn chunk_loop(buf: &mut Vec<u8>, msg_sch: &mut MsgSch, digest: &mut Digest, len: usize) {
             buf.push(128u8);
