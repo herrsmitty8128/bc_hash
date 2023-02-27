@@ -1,4 +1,5 @@
 pub mod sha256 {
+
     use std::cmp::Ordering;
     use std::fmt::Display;
     use std::fs::File;
@@ -127,10 +128,9 @@ pub mod sha256 {
 
     impl TryFrom<&Path> for Digest {
         type Error = std::io::Error;
-        /// Attempts to open a file, read all of its contents into a buffer, then calculate and
-        /// return a new SHA-256 digest. Ok(Digest) is returned on success. Err(io::Error) is returned
-        /// on failure. The *path* argument must contain the path and file name of the file for
-        /// which the digest should be calculated.
+        /// Calculates and returns a new SHA-256 digest from the contents of the file located at *path*.
+        /// Ok(Digest) is returned on success. Err(io::Error) is returned on failure.
+        /// The *path* argument must contain the path and file name of the file for which the digest should be calculated.
         fn try_from(path: &Path) -> std::result::Result<Self, Self::Error> {
             Self::try_from(&File::open(path)?)
         }
@@ -138,41 +138,39 @@ pub mod sha256 {
 
     impl TryFrom<&File> for Digest {
         type Error = std::io::Error;
+        /// Calculates and returns a new SHA-256 digest from the contents of *file*.
+        /// Returns Ok(Digest) on success or Err(io::Error) on failure.
         fn try_from(file: &File) -> std::result::Result<Self, Self::Error> {
+            const BUF_SIZE: usize = 2048;
             let len: usize = file.metadata()?.len() as usize;
-            let mut buffer: Vec<u8> = Vec::new();
             let mut digest: Digest = Digest::default();
             let mut msg_sch: MsgSch = MsgSch::default();
             let mut reader: BufReader<&File> = BufReader::new(file);
-            if len > reader.capacity() {
-                let mut buf: [u8; 2048] = [0; 2048];
-                let mut cum_read: usize = 0;
-                loop {
-                    let bytes_read: usize = reader.read(&mut buf)?;
-                    cum_read += bytes_read;
-                    if bytes_read > 0 {
-                        buffer.extend_from_slice(&buf[0..bytes_read]);
-                        if cum_read >= len {
-                            Self::chunk_loop(&mut buffer, &mut msg_sch, &mut digest, len);
-                            return Ok(digest);
-                        }
-                        let l: usize = buffer.len();
-                        if l > 64 {
-                            let r: usize = l % 64;
-                            let n: usize = l - r;
-                            for i in (0..n).step_by(64) {
-                                msg_sch.load(&buffer[i..(i + 64)]);
-                                digest.update(&mut msg_sch);
-                            }
-                            buffer.copy_within(n..l, 0);
-                            buffer.truncate(r);
-                        }
-                    }
+            let mut buf: [u8; BUF_SIZE] = [0; BUF_SIZE];
+            let mut cum_read: usize = 0;
+            let mut bytes_read: usize = 0;
+            loop {
+                bytes_read += reader.read(&mut buf[bytes_read..(BUF_SIZE - bytes_read)])?;
+                cum_read += bytes_read;
+                if cum_read >= len {
+                    Self::chunk_loop(
+                        &mut Vec::from(&buf[0..bytes_read]),
+                        &mut msg_sch,
+                        &mut digest,
+                        len,
+                    );
+                    return Ok(digest);
                 }
-            } else {
-                reader.read_to_end(&mut buffer)?;
-                Self::chunk_loop(&mut buffer, &mut msg_sch, &mut digest, len);
-                Ok(digest)
+                if bytes_read >= 64 {
+                    let r: usize = bytes_read % 64;
+                    let n: usize = bytes_read - r;
+                    for i in (0..n).step_by(64) {
+                        msg_sch.load(&buf[i..(i + 64)]);
+                        digest.update(&mut msg_sch);
+                    }
+                    buf.copy_within(n..bytes_read, 0);
+                    bytes_read = r;
+                }
             }
         }
     }
@@ -203,6 +201,7 @@ pub mod sha256 {
     }
 
     impl From<&[u8]> for Digest {
+        /// Calculates and returns a new SHA-256 digest from a slice of bytes.
         fn from(bytes: &[u8]) -> Self {
             Self::from(Vec::from(bytes).as_mut())
         }
@@ -230,6 +229,7 @@ pub mod sha256 {
             self.data = INITIAL_VALUES;
         }
 
+        /// Clones an array of 32 bytes into self's array of 32-bit unsigned integers. Each block of 4 bytes is converted from little endian.
         pub fn clone_from_le_bytes(&mut self, bytes: &[u8; 32]) {
             let mut temp: [u8; 4] = [0; 4];
             for (i, offset) in (0..32).step_by(4).enumerate() {
@@ -238,13 +238,14 @@ pub mod sha256 {
             }
         }
 
+        /// Clones self's array of 32-bit unsigned integers into an array of 32 bytes. Each 32-bit integer is converted to little endian when being cloned.
         pub fn clone_to_le_bytes(&self, bytes: &mut [u8; 32]) {
             for (i, offset) in (0..32).step_by(4).enumerate() {
                 bytes[offset..(offset + 4)].clone_from_slice(&self.data[i].to_le_bytes());
             }
         }
 
-        /// Calculates the SHA-256 digest from a vector of bytes and writes it to the digest's data buffer.
+        /// Calculates the SHA-256 digest from a vector of bytes and writes it to the digest's integer array.
         pub fn calculate(digest: &mut Digest, buf: &mut Vec<u8>) {
             digest.reset();
             let len: usize = buf.len();
