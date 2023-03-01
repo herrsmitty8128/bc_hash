@@ -8,6 +8,7 @@ pub mod sha256 {
 
     #[derive(Debug, Clone)]
     pub enum Error {
+        InvalidSliceLength,
         StringTooLong,
         StringTooShort,
         ParseError(std::num::ParseIntError),
@@ -30,6 +31,7 @@ pub mod sha256 {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             use Error::*;
             match self {
+                InvalidSliceLength => f.write_str("Slice is an invalid length"),
                 StringTooLong => f.write_str("String has too many characters"),
                 StringTooShort => f.write_str("String has too few characters"),
                 ParseError(e) => f.write_fmt(format_args!("{}", e)),
@@ -230,18 +232,28 @@ pub mod sha256 {
         }
 
         /// Clones an array of 32 bytes into self's array of 32-bit unsigned integers. Each block of 4 bytes is converted from little endian.
-        pub fn clone_from_le_bytes(&mut self, bytes: &[u8; 32]) {
-            let mut temp: [u8; 4] = [0; 4];
-            for (i, offset) in (0..32).step_by(4).enumerate() {
-                temp.clone_from_slice(&bytes[offset..(offset + 4)]);
-                self.data[i] = u32::from_le_bytes(temp);
+        pub fn clone_from_le_bytes(&mut self, bytes: &[u8]) -> Result<()> {
+            if bytes.len() != 32 {
+                Err(Error::InvalidSliceLength)
+            } else {
+                let mut temp: [u8; 4] = [0; 4];
+                for (i, offset) in (0..32).step_by(4).enumerate() {
+                    temp.clone_from_slice(&bytes[offset..(offset + 4)]);
+                    self.data[i] = u32::from_le_bytes(temp);
+                }
+                Ok(())
             }
         }
 
         /// Clones self's array of 32-bit unsigned integers into an array of 32 bytes. Each 32-bit integer is converted to little endian when being cloned.
-        pub fn clone_to_le_bytes(&self, bytes: &mut [u8; 32]) {
-            for (i, offset) in (0..32).step_by(4).enumerate() {
-                bytes[offset..(offset + 4)].clone_from_slice(&self.data[i].to_le_bytes());
+        pub fn clone_to_le_bytes(&self, bytes: &mut [u8]) -> Result<()> {
+            if bytes.len() != 32 {
+                Err(Error::InvalidSliceLength)
+            } else {
+                for (i, offset) in (0..32).step_by(4).enumerate() {
+                    bytes[offset..(offset + 4)].clone_from_slice(&self.data[i].to_le_bytes());
+                }
+                Ok(())
             }
         }
 
