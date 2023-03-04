@@ -2,6 +2,7 @@ use sha2::sha256::Digest;
 use std::error::Error;
 use std::path::Path;
 
+
 fn main() -> Result<(), Box<dyn Error>> {
     let path: &Path = Path::new("./src/lib.rs"); // "./test.txt" "/home/chris/Downloads/code_1.75.0-1675266613_amd64.deb"
     println!("{:?}", path.as_os_str());
