@@ -245,8 +245,13 @@ pub mod sha256 {
             }
         }
 
-        /// Clones self's array of 32-bit unsigned integers into an array of 32 bytes. Each 32-bit integer is converted to little endian when being cloned.
-        pub fn clone_to_le_bytes(&self, bytes: &mut [u8]) -> Result<()> {
+        pub fn deserialize(bytes: &[u8]) -> Result<Self> {
+            let mut digest = Digest::new();
+            digest.clone_from_le_bytes(bytes)?;
+            Ok(digest)
+        }
+
+        pub fn serialize(&self, bytes: &mut [u8]) -> Result<()> {
             if bytes.len() != 32 {
                 Err(Error::InvalidSliceLength)
             } else {

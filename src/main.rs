@@ -16,8 +16,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("{}", hex_string);
 
     let mut bytes: [u8; 32] = [0; 32];
-    digest.clone_to_le_bytes(&mut bytes);
-    digest.clone_from_le_bytes(&bytes);
+    digest.serialize(&mut bytes)?;
+    digest.clone_from_le_bytes(&bytes)?;
     println!("{} after byte conversion", digest);
 
     let mut arr: Vec<u8> = vec![6, 4, 8, 2, 3, 0, 2];
