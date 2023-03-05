@@ -6,6 +6,7 @@ pub mod sha256 {
     use std::io::{BufReader, Read};
     use std::path::Path;
 
+    /// An enumeration of the various error types used throughout *bc_hash*.
     #[derive(Debug, Clone)]
     pub enum Error {
         InvalidSliceLength,
@@ -16,18 +17,21 @@ pub mod sha256 {
     }
 
     impl From<std::num::ParseIntError> for Error {
+        /// Converts from a std::num::ParseIntError to a sha256::Error.
         fn from(e: std::num::ParseIntError) -> Self {
             Error::ParseError(e)
         }
     }
 
     impl From<std::io::Error> for Error {
+        /// Converts from a std::io::Error to a sha256::Error.
         fn from(e: std::io::Error) -> Self {
             Error::IOError(e.kind())
         }
     }
 
     impl Display for Error {
+        /// Implementation of the Display trait for sha256::Error.
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             use Error::*;
             match self {
@@ -40,12 +44,16 @@ pub mod sha256 {
         }
     }
 
+    /// Implementation of the standard Error trait for sha256::Error
     impl std::error::Error for Error {}
 
+    /// A type used to standardize the result type used throughout bc_hash. This simplifies the Result<> return
+    /// types throughout the library and helps ensure the consistent use of Self::Error, which can be easily
+    /// used with other error types in the standard library.
     pub type Result<T> = std::result::Result<T, Error>;
 
-    /// The first 32 bits of the fractional parts of the cube roots of the first 64 primes 2 through 311.
-    const CONSTANTS: [u32; 64] = [
+    /// An array of 64 constants consisting of the first 32 bits of the fractional parts of the cube roots of the first 64 primes 2 through 311.
+    pub const CONSTANTS: [u32; 64] = [
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
         0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe,
         0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f,
@@ -59,7 +67,7 @@ pub mod sha256 {
     ];
 
     /// An array used to initialize a digest to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
-    const INITIAL_VALUES: [u32; 8] = [
+    pub const INITIAL_VALUES: [u32; 8] = [
         0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
         0x5be0cd19,
     ];
@@ -70,6 +78,7 @@ pub mod sha256 {
     }
 
     impl Default for MsgSch {
+        /// Creates a new MsgSch object initialized with zeros.
         fn default() -> Self {
             Self { w: [0; 64] }
         }
@@ -93,9 +102,13 @@ pub mod sha256 {
         data: [u32; 8],
     }
 
+    /// The total size of a digest object's data array in bytes.
+    pub const DIGEST_SIZE: usize = 32;
+
     impl Eq for Digest {}
 
     impl PartialEq for Digest {
+        /// Returns true if self and other contain the same values in their data arrays. Otherwise, it returns false.
         fn eq(&self, other: &Self) -> bool {
             for i in 0..8 {
                 if self.data[i] != other.data[i] {
@@ -105,6 +118,7 @@ pub mod sha256 {
             true
         }
 
+        /// Returns true if self and other do not contain the same values in their data arrays. Otherwise, it returns true.
         #[allow(clippy::partialeq_ne_impl)]
         fn ne(&self, other: &Self) -> bool {
             !self.eq(other)
@@ -112,13 +126,14 @@ pub mod sha256 {
     }
 
     impl Default for Digest {
-        /// Calls Digest::new().
+        /// Creates and returns a new digest object by calling Digest::new().
         fn default() -> Self {
             Self::new()
         }
     }
 
     impl Display for Digest {
+        /// Implementation of the Display trait for sha256::Digest.
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             let mut data: String = String::new();
             for n in self.data {
@@ -179,7 +194,7 @@ pub mod sha256 {
 
     impl TryFrom<&str> for Digest {
         type Error = Error;
-        /// Attempts to create a new sha-256 digest from the string argument. The string must be 64 characters
+        /// Attempts to create a new sha-256 digest from a string. The string must be 64 characters
         /// in hexidecimal format and may include the "0x" prefix. Ok(Digest) is returned on success. Err(String)
         /// is returned on failure.
         fn try_from(string: &str) -> std::result::Result<Self, Self::Error> {
@@ -219,7 +234,7 @@ pub mod sha256 {
     }
 
     impl Digest {
-        /// Creates a new digest whose buffer is initialized to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
+        /// Creates and returns a new digest initialized to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
         pub fn new() -> Self {
             Self {
                 data: INITIAL_VALUES,
@@ -231,8 +246,10 @@ pub mod sha256 {
             self.data = INITIAL_VALUES;
         }
 
-        /// Clones an array of 32 bytes into self's array of 32-bit unsigned integers. Each block of 4 bytes is converted from little endian.
-        pub fn clone_from_le_bytes(&mut self, bytes: &[u8]) -> Result<()> {
+        /// Attempts to transmute a slice of bytes into an existing sha256::Digest object using little endian byte order.
+        /// Returns Ok<()> on success or Err<sha256::Error> on failure.
+        /// Returns Err(Error::InvalidSliceLength) if the length of the slice is not equal to 32 bytes.
+        pub fn deserialize_in_place(&mut self, bytes: &[u8]) -> Result<()> {
             if bytes.len() != 32 {
                 Err(Error::InvalidSliceLength)
             } else {
@@ -245,12 +262,18 @@ pub mod sha256 {
             }
         }
 
+        /// Attempts to transmute a slice of bytes into a new sha256::Digest object using little endian byte order.
+        /// Returns Ok<Digest> on success or Err<sha256::Error> on failure.
+        /// Returns Err(Error::InvalidSliceLength) if the length of the slice is not equal to 32 bytes.
         pub fn deserialize(bytes: &[u8]) -> Result<Self> {
             let mut digest = Digest::new();
-            digest.clone_from_le_bytes(bytes)?;
+            digest.deserialize_in_place(bytes)?;
             Ok(digest)
         }
 
+        /// Attempts to serialize self to a slice of bytes using little endian byte order.
+        /// Returns Ok<()> on success or Err<sha256::Error> on failure.
+        /// Returns Err(Error::InvalidSliceLength) if the length of the slice is not equal to 32 bytes.
         pub fn serialize(&self, bytes: &mut [u8]) -> Result<()> {
             if bytes.len() != 32 {
                 Err(Error::InvalidSliceLength)
@@ -262,7 +285,7 @@ pub mod sha256 {
             }
         }
 
-        /// Calculates the SHA-256 digest from a vector of bytes and writes it to the digest's integer array.
+        /// Calculates the SHA-256 digest from a vector of bytes and writes it to the digest.
         pub fn calculate(digest: &mut Digest, buf: &mut Vec<u8>) {
             digest.reset();
             let len: usize = buf.len();
@@ -271,12 +294,12 @@ pub mod sha256 {
             buf.truncate(len);
         }
 
-        /// Performs the following actions:
+        /// This is a private function used in the calculation of SHA-256, which Performs the following actions:
         /// 1.) Appends a single "1" to the buffer.
         /// 2.) Rounds the buffer to nearest multiple of 512 bits while leaving room for 8 more bytes.
         /// 3.) Converts the bit count of the buffer into an 8-byte array in big endian format and appends it to the buffer.
         /// 4.) Breaks the vector into 512-bit slices used to load the message schedule and update the digest.
-        /// This is the "chunk loop".
+        /// This is known as the "chunk loop".
         fn chunk_loop(buf: &mut Vec<u8>, msg_sch: &mut MsgSch, digest: &mut Digest, len: usize) {
             buf.push(128u8);
             while (buf.len() + 8) % 64 != 0 {
@@ -289,7 +312,7 @@ pub mod sha256 {
             }
         }
 
-        /// Updates the value of the digest based on the contents of the message schedule.
+        /// This is a private function used in the calculation of SHA-256, which updates the value of the digest based on the contents of the message schedule.
         fn update(&mut self, msg_sch: &mut MsgSch) {
             // extend the first 16 words into the remaining 48 words of the message schedule
             for i in 0..48 {

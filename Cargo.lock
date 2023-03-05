@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "sha2"
+name = "bc_hash"
 version = "0.1.0"

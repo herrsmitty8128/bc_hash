@@ -1,7 +1,10 @@
-# sha2
+# Blockchain Hashing ("bc_hash")
 
-*sha2* is a library of SHA2 algorithms written in Rust and licensed under the MIT License. At the moment,
-it only implements the SHA-256 algorithm and is not (yet) designed ot test for multiprocessing.
+*bc_hash* is a library of cryptographic hashing algorithms commonly used in blockchain applications. At the moment, only the SHA-256 has been implemented. However, more algorithms are planning for implementation in the future.
+
+## License
+
+*bc_hash* is licensed under the MIT License.
 
 ## Resources
 

@@ -1,10 +1,9 @@
-use sha2::sha256::Digest;
+use bc_hash::sha256::Digest;
 use std::error::Error;
 use std::path::Path;
 
-
 fn main() -> Result<(), Box<dyn Error>> {
-    let path: &Path = Path::new("./src/lib.rs"); // "./test.txt" "/home/chris/Downloads/code_1.75.0-1675266613_amd64.deb"
+    let path: &Path = Path::new("./src/lib.rs");
     println!("{:?}", path.as_os_str());
     let digest: Digest = Digest::try_from(path)?;
     println!("{}", digest);
@@ -18,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut bytes: [u8; 32] = [0; 32];
     digest.serialize(&mut bytes)?;
-    digest.clone_from_le_bytes(&bytes)?;
+    digest.deserialize_in_place(&bytes)?;
     println!("{} after byte conversion", digest);
 
     let mut arr: Vec<u8> = vec![6, 4, 8, 2, 3, 0, 2];
