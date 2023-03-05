@@ -28,4 +28,4 @@ The following are suggested resources for anyone interested in learning more abo
 
 ## Documentation
 
-[Click here to view the documentation](https://github.com/herrsmitty8128/bc_hash/docs/index.html)
+[Click here to view the documentation](https://github.com/herrsmitty8128/bc_hash/tree/main/docs/index.html)
