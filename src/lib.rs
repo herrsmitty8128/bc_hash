@@ -1,7 +1,7 @@
 /// MIT License
 ///
 /// Copyright (c) 2022 herrsmitty8128
-/// 
+///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
 /// of this software and associated documentation files (the "Software"), to deal
 /// in the Software without restriction, including without limitation the rights
@@ -11,7 +11,7 @@
 ///  
 /// The above copyright notice and this permission notice shall be included in all
 /// copies or substantial portions of the Software.
-/// 
+///
 /// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 /// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 /// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -20,13 +20,9 @@
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 /// SOFTWARE.
 
-pub mod sha256 {
+pub mod error {
 
-    use std::cmp::Ordering;
     use std::fmt::Display;
-    use std::fs::File;
-    use std::io::{BufReader, Read};
-    use std::path::Path;
 
     /// An enumeration of the various error types used throughout *bc_hash*.
     #[derive(Debug, Clone)]
@@ -73,6 +69,16 @@ pub mod sha256 {
     /// types throughout the library and helps ensure the consistent use of Self::Error, which can be easily
     /// used with other error types in the standard library.
     pub type Result<T> = std::result::Result<T, Error>;
+}
+
+pub mod sha256 {
+
+    use crate::error::{Error, Result};
+    use std::cmp::Ordering;
+    use std::fmt::Display;
+    use std::fs::File;
+    use std::io::{BufReader, Read};
+    use std::path::Path;
 
     /// An array of 64 constants consisting of the first 32 bits of the fractional parts of the cube roots of the first 64 primes 2 through 311.
     pub const CONSTANTS: [u32; 64] = [

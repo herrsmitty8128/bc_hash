@@ -26,6 +26,10 @@ The following are suggested resources for anyone interested in learning more abo
 * https://medium.com/a-42-journey/implementing-the-sha256-and-md5-hash-functions-in-c-78c17e657794
 * https://github.com/ilvn/SHA256
 
+The following are suggested resources for anyone interested in learning more about Merkle Trees and proofs:
+* https://medium.com/crypto-0-nite/merkle-proofs-explained-6dd429623dc5
+* https://transparency.dev/verifiable-data-structures/
+
 ## Documentation
 
 [Click here to view the documentation on GitHub Pages](https://herrsmitty8128.github.io/bc_hash/bc_hash/)

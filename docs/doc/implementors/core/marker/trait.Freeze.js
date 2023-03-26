@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"bc_hash":[["impl Freeze for <a class=\"enum\" href=\"bc_hash/error/enum.Error.html\" title=\"enum bc_hash::error::Error\">Error</a>",1,["bc_hash::error::Error"]],["impl Freeze for <a class=\"struct\" href=\"bc_hash/sha256/struct.Digest.html\" title=\"struct bc_hash::sha256::Digest\">Digest</a>",1,["bc_hash::sha256::Digest"]]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
