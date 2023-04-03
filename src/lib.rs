@@ -86,10 +86,10 @@ pub mod crypto {
         Default
         + Display
         + Eq
-        + TryFrom<&'a str>      // create a new digest from a str
-        + TryFrom<&'a File>     // create a new digest from a file
-        + TryFrom<&'a Path>     // for convenience; calls TryFrom<&'a File>
-        + From<&'a [u8]>        
+        + TryFrom<&'a str>
+        + TryFrom<&'a File>
+        + TryFrom<&'a Path>
+        + From<&'a [u8]>
         + From<&'a mut Vec<u8>>
     {
         const DIGEST_SIZE: usize;
@@ -105,8 +105,9 @@ pub mod crypto {
 }
 
 pub mod sha256 {
-    use crate::error::{Error, Result};
+
     use crate::crypto::Digest as CryptoDigest;
+    use crate::error::{Error, Result};
     use std::cmp::Ordering;
     use std::fmt::Display;
     use std::fs::File;
@@ -300,13 +301,6 @@ pub mod sha256 {
         /// The size of a digest in bytes.
         const DIGEST_SIZE: usize = 32;
 
-        /// Creates and returns a new digest initialized to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
-        /*fn new() -> Self {
-            Self {
-                data: INITIAL_VALUES,
-            }
-        }*/
-
         /// Resets the digest's data buffer to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
         fn reset(&mut self) {
             self.data = INITIAL_VALUES;
@@ -367,13 +361,6 @@ pub mod sha256 {
                 Ok(())
             }
         }
-
-        /// Returns an array of bytes containing a serialized digest.
-        /*fn serialize(&self) -> Result<[u8; DIGEST_SIZE]> {
-            let mut buf: [u8; DIGEST_SIZE] = [0; DIGEST_SIZE];
-            self.serialize_to(&mut buf[..])?;
-            Ok(buf)
-        }*/
 
         /// Calculates the SHA-256 digest from a vector of bytes and writes it to the digest.
         fn calculate(digest: &mut Digest, buf: &mut Vec<u8>) {

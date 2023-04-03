@@ -1,4 +1,3 @@
-use bc_hash::sha256::Digest;
 /// MIT License
 ///
 /// Copyright (c) 2022 herrsmitty8128
@@ -21,6 +20,7 @@ use bc_hash::sha256::Digest;
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 /// SOFTWARE.
 use bc_hash::crypto::Digest as CryptoDigest;
+use bc_hash::sha256::Digest;
 use std::error::Error;
 use std::path::Path;
 
