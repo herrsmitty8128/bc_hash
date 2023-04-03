@@ -88,13 +88,15 @@ pub mod crypto {
         + From<&'a [u8]>
         + From<&'a mut Vec<u8>>
     {
-        const DIGEST_SIZE: usize;
+        const SIZE: usize = std::mem::size_of::<Self>();
+        type ByteArray: Sized;
         fn reset(&mut self);
         fn as_bytes(&self) -> &[u8];
         fn as_bytes_mut(&mut self) -> &[u8];
         fn deserialize_from(&mut self, bytes: &[u8]) -> crate::error::Result<()>;
         fn deserialize(bytes: &[u8]) -> crate::error::Result<Self>;
         fn serialize_to(&self, bytes: &mut [u8]) -> crate::error::Result<()>;
+        fn serialize(&self) -> crate::error::Result<Self::ByteArray>;
         fn calculate(digest: &mut Self, buf: &mut Vec<u8>);
     }
 }
@@ -286,7 +288,7 @@ pub mod sha256 {
 
     impl<'a> CryptoDigest<'a> for Digest {
         /// The size of a digest in bytes.
-        const DIGEST_SIZE: usize = 32;
+        type ByteArray = [u8; Self::SIZE];
 
         /// Resets the digest's data buffer to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
         fn reset(&mut self) {
@@ -295,18 +297,13 @@ pub mod sha256 {
 
         /// Returns self's underlying array as a slice of bytes.
         fn as_bytes(&self) -> &[u8] {
-            unsafe {
-                std::slice::from_raw_parts(self.data[..].as_ptr() as *const u8, Self::DIGEST_SIZE)
-            }
+            unsafe { std::slice::from_raw_parts(self.data[..].as_ptr() as *const u8, Self::SIZE) }
         }
 
         /// Returns self's underlying array as a mutable slice of bytes.
         fn as_bytes_mut(&mut self) -> &[u8] {
             unsafe {
-                std::slice::from_raw_parts_mut(
-                    self.data[..].as_mut_ptr() as *mut u8,
-                    Self::DIGEST_SIZE,
-                )
+                std::slice::from_raw_parts_mut(self.data[..].as_mut_ptr() as *mut u8, Self::SIZE)
             }
         }
 
@@ -347,6 +344,12 @@ pub mod sha256 {
                 }
                 Ok(())
             }
+        }
+
+        fn serialize(&self) -> Result<Self::ByteArray> {
+            let mut bytes: Self::ByteArray = [0; 32];
+            self.serialize_to(&mut bytes[..])?;
+            Ok(bytes)
         }
 
         /// Calculates the SHA-256 digest from a vector of bytes and writes it to the digest.
