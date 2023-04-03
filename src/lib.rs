@@ -159,20 +159,12 @@ pub mod sha256 {
         data: [u32; 8],
     }
 
-    /// The total size of a digest object's data array in bytes.
-    //pub const DIGEST_SIZE: usize = 32;
-
     impl Eq for Digest {}
 
     impl PartialEq for Digest {
         /// Returns true if self and other contain the same values in their data arrays. Otherwise, it returns false.
         fn eq(&self, other: &Self) -> bool {
-            for i in 0..8 {
-                if self.data[i] != other.data[i] {
-                    return false;
-                }
-            }
-            true
+            self.data == other.data
         }
 
         /// Returns true if self and other do not contain the same values in their data arrays. Otherwise, it returns true.
