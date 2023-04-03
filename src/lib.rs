@@ -20,6 +20,11 @@
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 /// SOFTWARE.
 
+/// Converts a slice of consecutive byte arrays into one slice of bytes.
+pub fn merge_arr<const S: usize>(data: &[[u8; S]]) -> &[u8] {
+    unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * S) }
+}
+
 pub mod error {
 
     use std::fmt::Display;
@@ -71,9 +76,37 @@ pub mod error {
     pub type Result<T> = std::result::Result<T, Error>;
 }
 
-pub mod sha256 {
+pub mod crypto {
 
+    use std::fmt::Display;
+    use std::fs::File;
+    use std::path::Path;
+
+    pub trait Digest<'a>:
+        Default
+        + Display
+        + Eq
+        + TryFrom<&'a str>      // create a new digest from a str
+        + TryFrom<&'a File>     // create a new digest from a file
+        + TryFrom<&'a Path>     // for convenience; calls TryFrom<&'a File>
+        + From<&'a [u8]>        
+        + From<&'a mut Vec<u8>>
+    {
+        const DIGEST_SIZE: usize;
+        fn reset(&mut self);
+        fn as_bytes(&self) -> &[u8];
+        fn as_bytes_mut(&mut self) -> &[u8];
+        fn deserialize_from(&mut self, bytes: &[u8]) -> crate::error::Result<()>;
+        fn deserialize(bytes: &[u8]) -> crate::error::Result<Self>;
+        fn serialize_to(&self, bytes: &mut [u8]) -> crate::error::Result<()>;
+        //fn serialize(&self) -> crate::error::Result<[u8]>;
+        fn calculate(digest: &mut Self, buf: &mut Vec<u8>);
+    }
+}
+
+pub mod sha256 {
     use crate::error::{Error, Result};
+    use crate::crypto::Digest as CryptoDigest;
     use std::cmp::Ordering;
     use std::fmt::Display;
     use std::fs::File;
@@ -131,7 +164,7 @@ pub mod sha256 {
     }
 
     /// The total size of a digest object's data array in bytes.
-    pub const DIGEST_SIZE: usize = 32;
+    //pub const DIGEST_SIZE: usize = 32;
 
     impl Eq for Digest {}
 
@@ -156,7 +189,9 @@ pub mod sha256 {
     impl Default for Digest {
         /// Creates and returns a new digest object by calling Digest::new().
         fn default() -> Self {
-            Self::new()
+            Self {
+                data: INITIAL_VALUES,
+            }
         }
     }
 
@@ -261,23 +296,43 @@ pub mod sha256 {
         }
     }
 
-    impl Digest {
+    impl<'a> CryptoDigest<'a> for Digest {
+        /// The size of a digest in bytes.
+        const DIGEST_SIZE: usize = 32;
+
         /// Creates and returns a new digest initialized to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
-        pub fn new() -> Self {
+        /*fn new() -> Self {
             Self {
                 data: INITIAL_VALUES,
             }
-        }
+        }*/
 
         /// Resets the digest's data buffer to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
-        pub fn reset(&mut self) {
+        fn reset(&mut self) {
             self.data = INITIAL_VALUES;
+        }
+
+        /// Returns self's underlying array as a slice of bytes.
+        fn as_bytes(&self) -> &[u8] {
+            unsafe {
+                std::slice::from_raw_parts(self.data[..].as_ptr() as *const u8, Self::DIGEST_SIZE)
+            }
+        }
+
+        /// Returns self's underlying array as a mutable slice of bytes.
+        fn as_bytes_mut(&mut self) -> &[u8] {
+            unsafe {
+                std::slice::from_raw_parts_mut(
+                    self.data[..].as_mut_ptr() as *mut u8,
+                    Self::DIGEST_SIZE,
+                )
+            }
         }
 
         /// Attempts to transmute a slice of bytes into an existing sha256::Digest object using little endian byte order.
         /// Returns Ok<()> on success or Err<sha256::Error> on failure.
         /// Returns Err(Error::InvalidSliceLength) if the length of the slice is not equal to 32 bytes.
-        pub fn deserialize_in_place(&mut self, bytes: &[u8]) -> Result<()> {
+        fn deserialize_from(&mut self, bytes: &[u8]) -> Result<()> {
             if bytes.len() != 32 {
                 Err(Error::InvalidSliceLength)
             } else {
@@ -293,16 +348,16 @@ pub mod sha256 {
         /// Attempts to transmute a slice of bytes into a new sha256::Digest object using little endian byte order.
         /// Returns Ok<Digest> on success or Err<sha256::Error> on failure.
         /// Returns Err(Error::InvalidSliceLength) if the length of the slice is not equal to 32 bytes.
-        pub fn deserialize(bytes: &[u8]) -> Result<Self> {
-            let mut digest = Digest::new();
-            digest.deserialize_in_place(bytes)?;
+        fn deserialize(bytes: &[u8]) -> Result<Self> {
+            let mut digest = Digest::default();
+            digest.deserialize_from(bytes)?;
             Ok(digest)
         }
 
         /// Attempts to serialize self to a slice of bytes using little endian byte order.
         /// Returns Ok<()> on success or Err<sha256::Error> on failure.
         /// Returns Err(Error::InvalidSliceLength) if the length of the slice is not equal to 32 bytes.
-        pub fn serialize(&self, bytes: &mut [u8]) -> Result<()> {
+        fn serialize_to(&self, bytes: &mut [u8]) -> Result<()> {
             if bytes.len() != 32 {
                 Err(Error::InvalidSliceLength)
             } else {
@@ -313,15 +368,24 @@ pub mod sha256 {
             }
         }
 
+        /// Returns an array of bytes containing a serialized digest.
+        /*fn serialize(&self) -> Result<[u8; DIGEST_SIZE]> {
+            let mut buf: [u8; DIGEST_SIZE] = [0; DIGEST_SIZE];
+            self.serialize_to(&mut buf[..])?;
+            Ok(buf)
+        }*/
+
         /// Calculates the SHA-256 digest from a vector of bytes and writes it to the digest.
-        pub fn calculate(digest: &mut Digest, buf: &mut Vec<u8>) {
+        fn calculate(digest: &mut Digest, buf: &mut Vec<u8>) {
             digest.reset();
             let len: usize = buf.len();
             let mut msg_sch: MsgSch = MsgSch::default();
             Self::chunk_loop(buf, &mut msg_sch, digest, len);
             buf.truncate(len);
         }
+    }
 
+    impl Digest {
         /// This is a private function used in the calculation of SHA-256, which Performs the following actions:
         /// 1.) Appends a single "1" to the buffer.
         /// 2.) Rounds the buffer to nearest multiple of 512 bits while leaving room for 8 more bytes.
