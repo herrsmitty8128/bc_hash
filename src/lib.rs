@@ -287,7 +287,8 @@ pub mod sha256 {
     }
 
     impl<'a> CryptoDigest<'a> for Digest {
-        /// The size of a digest in bytes.
+        /// A type representing a digest object as an array of bytes. This must be the same type that is used
+        /// in all serialization and deserialization operations.
         type ByteArray = [u8; Self::SIZE];
 
         /// Resets the digest's data buffer to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
