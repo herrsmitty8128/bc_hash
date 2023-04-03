@@ -97,11 +97,6 @@ pub mod crypto {
         fn serialize_to(&self, bytes: &mut [u8]) -> crate::error::Result<()>;
         fn calculate(digest: &mut Self, buf: &mut Vec<u8>);
     }
-
-    /// Converts a slice of consecutive byte arrays into one slice of bytes.
-    pub fn join_arrays<const S: usize>(data: &[[u8; S]]) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * S) }
-    }
 }
 
 pub mod sha256 {
