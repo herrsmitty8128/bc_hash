@@ -20,11 +20,6 @@
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 /// SOFTWARE.
 
-/// Converts a slice of consecutive byte arrays into one slice of bytes.
-pub fn merge_arr<const S: usize>(data: &[[u8; S]]) -> &[u8] {
-    unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * S) }
-}
-
 pub mod error {
 
     use std::fmt::Display;
@@ -85,6 +80,7 @@ pub mod crypto {
     pub trait Digest<'a>:
         Default
         + Display
+        + PartialEq
         + Eq
         + TryFrom<&'a str>
         + TryFrom<&'a File>
@@ -99,8 +95,12 @@ pub mod crypto {
         fn deserialize_from(&mut self, bytes: &[u8]) -> crate::error::Result<()>;
         fn deserialize(bytes: &[u8]) -> crate::error::Result<Self>;
         fn serialize_to(&self, bytes: &mut [u8]) -> crate::error::Result<()>;
-        //fn serialize(&self) -> crate::error::Result<[u8]>;
         fn calculate(digest: &mut Self, buf: &mut Vec<u8>);
+    }
+
+    /// Converts a slice of consecutive byte arrays into one slice of bytes.
+    pub fn join_arrays<const S: usize>(data: &[[u8; S]]) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * S) }
     }
 }
 
