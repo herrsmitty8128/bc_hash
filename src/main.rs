@@ -19,7 +19,7 @@
 /// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 /// SOFTWARE.
-use bc_hash::crypto::Digest as CryptoDigest;
+use bc_hash::digest::Digest as CryptoDigest;
 use bc_hash::sha256::Digest;
 use std::error::Error;
 use std::path::Path;
@@ -38,8 +38,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("{}", hex_string);
 
     let mut bytes: [u8; 32] = [0; 32];
-    digest.serialize_to(&mut bytes)?;
-    digest.deserialize_from(&bytes)?;
+    digest.serialize(&mut bytes)?;
+    digest = Digest::deserialize(&bytes)?;
     println!("{} after byte conversion", digest);
 
     let mut arr: Vec<u8> = vec![6, 4, 8, 2, 3, 0, 2];

@@ -30,6 +30,8 @@ pub mod error {
         InvalidSliceLength,
         StringTooLong,
         StringTooShort,
+        InvalidMerkleLeaves,
+        InvalidIndex,
         ParseError(std::num::ParseIntError),
         IOError(std::io::ErrorKind),
     }
@@ -56,6 +58,8 @@ pub mod error {
                 InvalidSliceLength => f.write_str("Slice is an invalid length"),
                 StringTooLong => f.write_str("String has too many characters"),
                 StringTooShort => f.write_str("String has too few characters"),
+                InvalidMerkleLeaves => f.write_str("Invalid merkle tree leaves"),
+                InvalidIndex => f.write_str("Invalid index (out of range)."),
                 ParseError(e) => f.write_fmt(format_args!("{}", e)),
                 IOError(e) => f.write_fmt(format_args!("{}", e)),
             }
@@ -71,39 +75,110 @@ pub mod error {
     pub type Result<T> = std::result::Result<T, Error>;
 }
 
-pub mod crypto {
+pub mod merkle {
+
+    use crate::digest::Digest;
+    use crate::error::Error;
+
+    pub fn compute_root<H>(leaves: &mut Vec<H>) -> crate::error::Result<(H, bool)>
+    where
+        H: Digest + Clone,
+    {
+        let n: usize = std::mem::size_of::<H>();
+        let mut mutation: bool = false;
+        let mut buffer: Vec<u8> = vec![0; n * 2];
+        while leaves.len() > 1 {
+            for i in 0..leaves.len() - 1 {
+                if leaves[i] == leaves[i + 1] {
+                    mutation = true;
+                }
+            }
+            if leaves.len() & 1 != 0 {
+                match leaves.last() {
+                    Some(d) => leaves.push(d.clone()),
+                    None => return Err(Error::InvalidMerkleLeaves),
+                }
+            }
+            for i in (0..leaves.len()).step_by(2) {
+                leaves[i].serialize(&mut buffer[0..n])?;
+                leaves[i + 1].serialize(&mut buffer[n..(n * 2)])?;
+                H::calculate(&mut leaves[i >> 1], &mut Vec::from(&buffer[0..(n * 2)]));
+            }
+            leaves.truncate(leaves.len() / 2)
+        }
+        Ok((leaves[0].clone(), mutation))
+    }
+
+    pub fn compute_proof<H>(
+        leaves: &mut Vec<H>,
+        mut index: usize,
+    ) -> crate::error::Result<(Vec<H>, bool)>
+    where
+        H: Digest + Clone,
+    {
+        let n: usize = std::mem::size_of::<H>();
+        let mut mutation: bool = false;
+        let mut buffer: Vec<u8> = vec![0; n * 2];
+        let mut proof: Vec<H> = Vec::new();
+        if index >= leaves.len() {
+            Err(Error::InvalidIndex)
+        } else {
+            while leaves.len() > 1 {
+                proof.push(leaves[index ^ 1].clone());
+                for i in 0..leaves.len() - 1 {
+                    if leaves[i] == leaves[i + 1] {
+                        mutation = true;
+                    }
+                }
+                if leaves.len() & 1 != 0 {
+                    match leaves.last() {
+                        Some(d) => leaves.push(d.clone()),
+                        None => return Err(Error::InvalidMerkleLeaves),
+                    }
+                }
+                for i in (0..leaves.len()).step_by(2) {
+                    leaves[i].serialize(&mut buffer[0..n])?;
+                    leaves[i + 1].serialize(&mut buffer[n..(n * 2)])?;
+                    H::calculate(&mut leaves[i >> 1], &mut Vec::from(&buffer[0..(n * 2)]));
+                }
+                leaves.truncate(leaves.len() / 2);
+                index >>= 2;
+            }
+            Ok((proof, mutation))
+        }
+    }
+
+    pub fn prove<H>(merkle_proof: &[H], data_hash: &H) -> crate::error::Result<H>
+    where
+        H: Digest,
+    {
+        let n: usize = std::mem::size_of::<H>();
+        let mut bytes: Vec<u8> = vec![0; n * 2];
+        data_hash.serialize(&mut bytes[0..n])?;
+        for digest in merkle_proof.iter() {
+            digest.serialize(&mut bytes[n..(n * 2)])?;
+            H::new(&bytes[0..(n * 2)]).serialize(&mut bytes[0..n])?;
+        }
+        H::deserialize(&bytes[0..n])
+    }
+}
+
+pub mod digest {
 
     use std::fmt::Display;
-    use std::fs::File;
-    use std::path::Path;
 
-    pub trait Digest<'a>:
-        Default
-        + Display
-        + PartialEq
-        + Eq
-        + TryFrom<&'a str>
-        + TryFrom<&'a File>
-        + TryFrom<&'a Path>
-        + From<&'a [u8]>
-        + From<&'a mut Vec<u8>>
-    {
-        const SIZE: usize = std::mem::size_of::<Self>();
-        type ByteArray: Sized;
+    pub trait Digest: Default + Display + PartialEq + Eq {
+        fn new(bytes: &[u8]) -> Self;
         fn reset(&mut self);
-        fn as_bytes(&self) -> &[u8];
-        fn as_bytes_mut(&mut self) -> &[u8];
-        fn deserialize_from(&mut self, bytes: &[u8]) -> crate::error::Result<()>;
         fn deserialize(bytes: &[u8]) -> crate::error::Result<Self>;
-        fn serialize_to(&self, bytes: &mut [u8]) -> crate::error::Result<()>;
-        fn serialize(&self) -> crate::error::Result<Self::ByteArray>;
+        fn serialize(&self, bytes: &mut [u8]) -> crate::error::Result<()>;
         fn calculate(digest: &mut Self, buf: &mut Vec<u8>);
     }
 }
 
 pub mod sha256 {
 
-    use crate::crypto::Digest as CryptoDigest;
+    use crate::digest::Digest as CryptoDigest;
     use crate::error::{Error, Result};
     use std::cmp::Ordering;
     use std::fmt::Display;
@@ -131,15 +206,13 @@ pub mod sha256 {
         0x5be0cd19,
     ];
 
-    /// Represents the message schedule buffer used in the processing of the SHA-256 algorithm.
-    struct MsgSch {
-        w: [u32; 64],
-    }
+    #[derive(Debug)]
+    struct MsgSch([u32; 64]);
 
     impl Default for MsgSch {
         /// Creates a new MsgSch object initialized with zeros.
         fn default() -> Self {
-            Self { w: [0; 64] }
+            Self([0; 64])
         }
     }
 
@@ -149,9 +222,9 @@ pub mod sha256 {
             let mut temp: [u8; 4] = [0; 4];
             for (i, offset) in (0..64).step_by(4).enumerate() {
                 temp.clone_from_slice(&chunk[offset..(offset + 4)]);
-                self.w[i] = u32::from_be_bytes(temp);
+                self.0[i] = u32::from_be_bytes(temp);
             }
-            self.w[16..64].fill(0);
+            self.0[16..64].fill(0);
         }
     }
 
@@ -286,57 +359,37 @@ pub mod sha256 {
         }
     }
 
-    impl<'a> CryptoDigest<'a> for Digest {
-        /// A type representing a digest object as an array of bytes. This must be the same type that is used
-        /// in all serialization and deserialization operations.
-        type ByteArray = [u8; Self::SIZE];
+    impl CryptoDigest for Digest {
+        fn new(bytes: &[u8]) -> Self {
+            Self::from(bytes)
+        }
 
         /// Resets the digest's data buffer to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
         fn reset(&mut self) {
             self.data = INITIAL_VALUES;
         }
 
-        /// Returns self's underlying array as a slice of bytes.
-        fn as_bytes(&self) -> &[u8] {
-            unsafe { std::slice::from_raw_parts(self.data[..].as_ptr() as *const u8, Self::SIZE) }
-        }
-
-        /// Returns self's underlying array as a mutable slice of bytes.
-        fn as_bytes_mut(&mut self) -> &[u8] {
-            unsafe {
-                std::slice::from_raw_parts_mut(self.data[..].as_mut_ptr() as *mut u8, Self::SIZE)
-            }
-        }
-
-        /// Attempts to transmute a slice of bytes into an existing sha256::Digest object using little endian byte order.
-        /// Returns Ok<()> on success or Err<sha256::Error> on failure.
-        /// Returns Err(Error::InvalidSliceLength) if the length of the slice is not equal to 32 bytes.
-        fn deserialize_from(&mut self, bytes: &[u8]) -> Result<()> {
-            if bytes.len() != 32 {
-                Err(Error::InvalidSliceLength)
-            } else {
-                let mut temp: [u8; 4] = [0; 4];
-                for (i, offset) in (0..32).step_by(4).enumerate() {
-                    temp.clone_from_slice(&bytes[offset..(offset + 4)]);
-                    self.data[i] = u32::from_le_bytes(temp);
-                }
-                Ok(())
-            }
-        }
-
         /// Attempts to transmute a slice of bytes into a new sha256::Digest object using little endian byte order.
         /// Returns Ok<Digest> on success or Err<sha256::Error> on failure.
         /// Returns Err(Error::InvalidSliceLength) if the length of the slice is not equal to 32 bytes.
         fn deserialize(bytes: &[u8]) -> Result<Self> {
-            let mut digest = Digest::default();
-            digest.deserialize_from(bytes)?;
-            Ok(digest)
+            if bytes.len() != 32 {
+                Err(Error::InvalidSliceLength)
+            } else {
+                let mut digest = Digest::default();
+                let mut temp: [u8; 4] = [0; 4];
+                for (i, offset) in (0..32).step_by(4).enumerate() {
+                    temp.clone_from_slice(&bytes[offset..(offset + 4)]);
+                    digest.data[i] = u32::from_le_bytes(temp);
+                }
+                Ok(digest)
+            }
         }
 
         /// Attempts to serialize self to a slice of bytes using little endian byte order.
         /// Returns Ok<()> on success or Err<sha256::Error> on failure.
         /// Returns Err(Error::InvalidSliceLength) if the length of the slice is not equal to 32 bytes.
-        fn serialize_to(&self, bytes: &mut [u8]) -> Result<()> {
+        fn serialize(&self, bytes: &mut [u8]) -> Result<()> {
             if bytes.len() != 32 {
                 Err(Error::InvalidSliceLength)
             } else {
@@ -345,12 +398,6 @@ pub mod sha256 {
                 }
                 Ok(())
             }
-        }
-
-        fn serialize(&self) -> Result<Self::ByteArray> {
-            let mut bytes: Self::ByteArray = [0; 32];
-            self.serialize_to(&mut bytes[..])?;
-            Ok(bytes)
         }
 
         /// Calculates the SHA-256 digest from a vector of bytes and writes it to the digest.
@@ -386,13 +433,13 @@ pub mod sha256 {
         fn update(&mut self, msg_sch: &mut MsgSch) {
             // extend the first 16 words into the remaining 48 words of the message schedule
             for i in 0..48 {
-                let w0: u32 = msg_sch.w[i];
-                let mut w1: u32 = msg_sch.w[i + 1];
+                let w0: u32 = msg_sch.0[i];
+                let mut w1: u32 = msg_sch.0[i + 1];
                 w1 = w1.rotate_right(7) ^ w1.rotate_right(18) ^ (w1 >> 3);
-                let w9: u32 = msg_sch.w[i + 9];
-                let mut w14: u32 = msg_sch.w[i + 14];
+                let w9: u32 = msg_sch.0[i + 9];
+                let mut w14: u32 = msg_sch.0[i + 14];
                 w14 = w14.rotate_right(17) ^ w14.rotate_right(19) ^ (w14 >> 10);
-                msg_sch.w[i + 16] = w0.wrapping_add(w1.wrapping_add(w9.wrapping_add(w14)));
+                msg_sch.0[i + 16] = w0.wrapping_add(w1.wrapping_add(w9.wrapping_add(w14)));
             }
 
             // set the working variables to the hash values
@@ -412,7 +459,7 @@ pub mod sha256 {
                 let choice: u32 = (e & f) ^ ((e ^ u32::MAX) & g);
                 let majority: u32 = (a & b) ^ (a & c) ^ (b & c);
                 let temp1: u32 = h.wrapping_add(
-                    sigma1.wrapping_add(choice.wrapping_add(constant.wrapping_add(msg_sch.w[i]))),
+                    sigma1.wrapping_add(choice.wrapping_add(constant.wrapping_add(msg_sch.0[i]))),
                 );
                 let temp2: u32 = sigma0.wrapping_add(majority);
                 // update working variables
