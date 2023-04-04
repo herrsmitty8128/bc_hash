@@ -80,7 +80,7 @@ pub mod merkle {
     use crate::digest::Digest;
     use crate::error::Error;
 
-    pub fn compute_root<H>(leaves: &mut Vec<H>) -> crate::error::Result<(H, bool)>
+    pub fn root<H>(leaves: &mut Vec<H>) -> crate::error::Result<(H, bool)>
     where
         H: Digest + Clone,
     {
@@ -109,10 +109,7 @@ pub mod merkle {
         Ok((leaves[0].clone(), mutation))
     }
 
-    pub fn compute_proof<H>(
-        leaves: &mut Vec<H>,
-        mut index: usize,
-    ) -> crate::error::Result<(Vec<H>, bool)>
+    pub fn proof<H>(leaves: &mut Vec<H>, mut index: usize) -> crate::error::Result<(Vec<H>, bool)>
     where
         H: Digest + Clone,
     {
