@@ -80,11 +80,11 @@ pub mod merkle {
     use crate::digest::Digest;
     use crate::error::Error;
 
-    pub fn root<H>(leaves: &mut Vec<H>) -> crate::error::Result<(H, bool)>
+    pub fn root<T>(leaves: &mut Vec<T>) -> crate::error::Result<(T, bool)>
     where
-        H: Digest + Clone,
+        T: Digest + Clone,
     {
-        let n: usize = std::mem::size_of::<H>();
+        let n: usize = std::mem::size_of::<T>();
         let mut mutation: bool = false;
         let mut buffer: Vec<u8> = vec![0; n * 2];
         while leaves.len() > 1 {
@@ -102,26 +102,38 @@ pub mod merkle {
             for i in (0..leaves.len()).step_by(2) {
                 leaves[i].serialize(&mut buffer[0..n])?;
                 leaves[i + 1].serialize(&mut buffer[n..(n * 2)])?;
-                H::calculate(&mut leaves[i >> 1], &mut Vec::from(&buffer[0..(n * 2)]));
+                leaves[i >> 1].compute(&mut Vec::from(&buffer[0..(n * 2)]));
             }
             leaves.truncate(leaves.len() / 2)
         }
         Ok((leaves[0].clone(), mutation))
     }
 
-    pub fn proof<H>(leaves: &mut Vec<H>, mut index: usize) -> crate::error::Result<(Vec<H>, bool)>
+    pub enum ChildNode<T: Digest> {
+        Left(T),
+        Right(T),
+    }
+
+    pub type Proof<T> = Vec<ChildNode<T>>;
+
+    pub fn proof<T>(leaves: &mut Vec<T>, mut index: usize) -> crate::error::Result<(Proof<T>, bool)>
     where
-        H: Digest + Clone,
+        T: Digest + Clone,
     {
-        let n: usize = std::mem::size_of::<H>();
+        let n: usize = std::mem::size_of::<T>();
         let mut mutation: bool = false;
         let mut buffer: Vec<u8> = vec![0; n * 2];
-        let mut proof: Vec<H> = Vec::new();
+        let mut proof: Proof<T> = Proof::new();
         if index >= leaves.len() {
             Err(Error::InvalidIndex)
         } else {
             while leaves.len() > 1 {
-                proof.push(leaves[index ^ 1].clone());
+                proof.push(if index & 1 == 1 {
+                    ChildNode::Left(leaves[index ^ 1].clone())
+                } else {
+                    ChildNode::Right(leaves[index ^ 1].clone())
+                });
+
                 for i in 0..leaves.len() - 1 {
                     if leaves[i] == leaves[i + 1] {
                         mutation = true;
@@ -136,7 +148,7 @@ pub mod merkle {
                 for i in (0..leaves.len()).step_by(2) {
                     leaves[i].serialize(&mut buffer[0..n])?;
                     leaves[i + 1].serialize(&mut buffer[n..(n * 2)])?;
-                    H::calculate(&mut leaves[i >> 1], &mut Vec::from(&buffer[0..(n * 2)]));
+                    leaves[i >> 1].compute(&mut Vec::from(&buffer[0..(n * 2)]));
                 }
                 leaves.truncate(leaves.len() / 2);
                 index >>= 2;
@@ -145,31 +157,37 @@ pub mod merkle {
         }
     }
 
-    pub fn prove<H>(merkle_proof: &[H], data_hash: &H) -> crate::error::Result<H>
+    pub fn prove<T>(merkle_proof: Proof<T>, data_hash: &mut T) -> crate::error::Result<()>
     where
-        H: Digest,
+        T: Digest,
     {
-        let n: usize = std::mem::size_of::<H>();
+        let n: usize = std::mem::size_of::<T>();
         let mut bytes: Vec<u8> = vec![0; n * 2];
-        data_hash.serialize(&mut bytes[0..n])?;
-        for digest in merkle_proof.iter() {
-            digest.serialize(&mut bytes[n..(n * 2)])?;
-            H::new(&bytes[0..(n * 2)]).serialize(&mut bytes[0..n])?;
+        for child in merkle_proof.iter() {
+            match child {
+                ChildNode::Left(sibling) => {
+                    sibling.serialize(&mut bytes[0..n])?;
+                    data_hash.serialize(&mut bytes[n..(n * 2)])?;
+                }
+                ChildNode::Right(sibling) => {
+                    data_hash.serialize(&mut bytes[0..n])?;
+                    sibling.serialize(&mut bytes[n..(n * 2)])?;
+                }
+            }
+            data_hash.compute(&mut bytes);
         }
-        H::deserialize(&bytes[0..n])
+        Ok(())
     }
 }
 
 pub mod digest {
-
-    use std::fmt::Display;
-
-    pub trait Digest: Default + Display + PartialEq + Eq {
-        fn new(bytes: &[u8]) -> Self;
+    pub trait Digest: Default + Eq {
+        fn new(buf: &mut Vec<u8>) -> Self;
         fn reset(&mut self);
+        fn as_bytes(&mut self) -> Vec<u8>;
         fn deserialize(bytes: &[u8]) -> crate::error::Result<Self>;
         fn serialize(&self, bytes: &mut [u8]) -> crate::error::Result<()>;
-        fn calculate(digest: &mut Self, buf: &mut Vec<u8>);
+        fn compute(&mut self, buf: &mut Vec<u8>);
     }
 }
 
@@ -293,12 +311,7 @@ pub mod sha256 {
                 bytes_read += reader.read(&mut buf[bytes_read..(BUF_SIZE - bytes_read)])?;
                 cum_read += bytes_read;
                 if cum_read >= len {
-                    Self::chunk_loop(
-                        &mut Vec::from(&buf[0..bytes_read]),
-                        &mut msg_sch,
-                        &mut digest,
-                        len,
-                    );
+                    digest.chunk_loop(&mut Vec::from(&buf[0..bytes_read]), &mut msg_sch, len);
                     return Ok(digest);
                 }
                 if bytes_read >= 64 {
@@ -343,27 +356,38 @@ pub mod sha256 {
     impl From<&[u8]> for Digest {
         /// Calculates and returns a new SHA-256 digest from a slice of bytes.
         fn from(bytes: &[u8]) -> Self {
-            Self::from(Vec::from(bytes).as_mut())
+            Self::new(Vec::from(bytes).as_mut())
         }
     }
 
     impl From<&mut Vec<u8>> for Digest {
         /// Calculates and returns a new SHA-256 digest from a vector of bytes.
         fn from(buf: &mut Vec<u8>) -> Self {
-            let mut digest: Digest = Digest::default();
-            Self::calculate(&mut digest, buf);
-            digest
+            Self::new(buf)
         }
     }
 
     impl CryptoDigest for Digest {
-        fn new(bytes: &[u8]) -> Self {
-            Self::from(bytes)
+        fn new(buf: &mut Vec<u8>) -> Self {
+            let len: usize = buf.len();
+            let mut digest: Digest = Digest::default();
+            let mut msg_sch: MsgSch = MsgSch::default();
+            digest.chunk_loop(buf, &mut msg_sch, len);
+            buf.truncate(len);
+            digest
         }
 
         /// Resets the digest's data buffer to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
         fn reset(&mut self) {
             self.data = INITIAL_VALUES;
+        }
+
+        fn as_bytes(&mut self) -> Vec<u8> {
+            unsafe {
+                Vec::from(
+                    std::slice::from_raw_parts_mut(self.data.as_mut_ptr() as *mut u8, 32)
+                )
+            }
         }
 
         /// Attempts to transmute a slice of bytes into a new sha256::Digest object using little endian byte order.
@@ -398,11 +422,11 @@ pub mod sha256 {
         }
 
         /// Calculates the SHA-256 digest from a vector of bytes and writes it to the digest.
-        fn calculate(digest: &mut Digest, buf: &mut Vec<u8>) {
-            digest.reset();
+        fn compute(&mut self, buf: &mut Vec<u8>) {
+            self.reset();
             let len: usize = buf.len();
             let mut msg_sch: MsgSch = MsgSch::default();
-            Self::chunk_loop(buf, &mut msg_sch, digest, len);
+            self.chunk_loop(buf, &mut msg_sch, len);
             buf.truncate(len);
         }
     }
@@ -414,7 +438,7 @@ pub mod sha256 {
         /// 3.) Converts the bit count of the buffer into an 8-byte array in big endian format and appends it to the buffer.
         /// 4.) Breaks the vector into 512-bit slices used to load the message schedule and update the digest.
         /// This is known as the "chunk loop".
-        fn chunk_loop(buf: &mut Vec<u8>, msg_sch: &mut MsgSch, digest: &mut Digest, len: usize) {
+        fn chunk_loop(&mut self, buf: &mut Vec<u8>, msg_sch: &mut MsgSch, len: usize) {
             buf.push(128u8);
             while (buf.len() + 8) % 64 != 0 {
                 buf.push(0u8);
@@ -422,7 +446,7 @@ pub mod sha256 {
             buf.extend_from_slice(&((len * 8) as u64).to_be_bytes());
             for i in (0..buf.len()).step_by(64) {
                 msg_sch.load(&buf[i..(i + 64)]);
-                digest.update(msg_sch);
+                self.update(msg_sch);
             }
         }
 
