@@ -184,7 +184,6 @@ pub mod digest {
     pub trait Digest: Default + Eq {
         fn new(buf: &mut Vec<u8>) -> Self;
         fn reset(&mut self);
-        fn as_bytes(&mut self) -> Vec<u8>;
         fn deserialize(bytes: &[u8]) -> crate::error::Result<Self>;
         fn serialize(&self, bytes: &mut [u8]) -> crate::error::Result<()>;
         fn compute(&mut self, buf: &mut Vec<u8>);
@@ -380,14 +379,6 @@ pub mod sha256 {
         /// Resets the digest's data buffer to the first 32 bits of the fractional parts of the square roots of the first 8 primes, 2 through 19.
         fn reset(&mut self) {
             self.data = INITIAL_VALUES;
-        }
-
-        fn as_bytes(&mut self) -> Vec<u8> {
-            unsafe {
-                Vec::from(
-                    std::slice::from_raw_parts_mut(self.data.as_mut_ptr() as *mut u8, 32)
-                )
-            }
         }
 
         /// Attempts to transmute a slice of bytes into a new sha256::Digest object using little endian byte order.
