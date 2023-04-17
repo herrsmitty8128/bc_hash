@@ -1,56 +1,90 @@
-/// MIT License
-///
-/// Copyright (c) 2022 herrsmitty8128
-///
-/// Permission is hereby granted, free of charge, to any person obtaining a copy
-/// of this software and associated documentation files (the "Software"), to deal
-/// in the Software without restriction, including without limitation the rights
-/// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-/// copies of the Software, and to permit persons to whom the Software is
-/// furnished to do so, subject to the following conditions:
-///  
-/// The above copyright notice and this permission notice shall be included in all
-/// copies or substantial portions of the Software.
-///
-/// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-/// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-/// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-/// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-/// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-/// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-/// SOFTWARE.
-use bc_hash::digest::Digest as CryptoDigest;
-use bc_hash::sha256::Digest;
+use bc_hash::sha2::{Sha224, Sha256, Sha384, Sha512, Sha512_224, Sha512_256};
+use bc_hash::sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512, Shake128, Shake256};
+use bc_hash::{Digest, OneWayHash};
 use std::error::Error;
-use std::path::Path;
+use std::io::Read;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let path: &Path = Path::new("./src/lib.rs");
-    println!("{:?}", path.as_os_str());
-    let digest: Digest = Digest::try_from(path)?;
-    println!("{}", digest);
+    let mut data: Vec<u8> = Vec::new();
+    let mut f = std::fs::File::open("./src/lib.rs")?;
+    f.read_to_end(&mut data)?;
 
-    let hex_string = digest.to_string();
-    println!("{}", hex_string);
+    //let mut s = String::from("Hello, world!");
+    //let data = unsafe { s.as_bytes_mut() };
 
-    let mut digest: Digest = Digest::try_from(hex_string.as_str())?;
-    let hex_string: String = digest.to_string();
-    println!("{}", hex_string);
+    let mut digest: Digest<28> = Digest::new();
+    let mut ctx = Sha3_224::init();
+    ctx.update(&data[..]);
+    ctx.finish(&mut digest.0[..]).unwrap();
+    println!("{}", &digest);
 
-    let mut bytes: [u8; 32] = [0; 32];
-    digest.serialize(&mut bytes)?;
-    digest = Digest::deserialize(&bytes)?;
-    println!("{} after byte conversion", digest);
+    let mut digest: Digest<32> = Digest::new();
+    let mut ctx = Sha3_256::init();
+    ctx.update(&data[..]);
+    ctx.finish(&mut digest.0[..]).unwrap();
+    println!("{}", &digest);
 
-    let mut arr: Vec<u8> = vec![6, 4, 8, 2, 3, 0, 2];
-    println!("Vec.len() = {}", arr.len());
-    println!("{:?}", arr);
-    let digest: Digest = Digest::from(&mut arr);
-    println!("{}", digest);
-    println!("Vec.len() = {}", arr.len());
-    println!("{:?}", arr);
+    let mut digest: Digest<48> = Digest::new();
+    let mut ctx = Sha3_384::init();
+    ctx.update(&data[..]);
+    ctx.finish(&mut digest.0[..]).unwrap();
+    println!("{}", &digest);
 
-    println!();
+    let mut digest: Digest<64> = Digest::new();
+    let mut ctx = Sha3_512::init();
+    ctx.update(&data[..]);
+    ctx.finish(&mut digest.0[..]).unwrap();
+    println!("{}", &digest);
+
+    let mut digest: Digest<28> = Digest::new();
+    let mut ctx = Sha224::init();
+    ctx.update(&data[..]);
+    ctx.finish(&mut digest.0[..]).unwrap();
+    println!("{}", &digest);
+
+    let mut digest: Digest<32> = Digest::new();
+    let mut ctx = Sha256::init();
+    ctx.update(&data[..]);
+    ctx.finish(&mut digest.0[..]).unwrap();
+    println!("{}", &digest);
+
+    let mut digest: Digest<48> = Digest::new();
+    let mut ctx = Sha384::init();
+    ctx.update(&data[..]);
+    ctx.finish(&mut digest.0[..]).unwrap();
+    println!("{}", &digest);
+
+    let mut digest: Digest<64> = Digest::new();
+    let mut ctx = Sha512::init();
+    ctx.update(&data[..]);
+    ctx.finish(&mut digest.0[..]).unwrap();
+    println!("{}", &digest);
+
+    let mut digest: Digest<28> = Digest::new();
+    let mut ctx = Sha512_224::init();
+    ctx.update(&data[..]);
+    ctx.finish(&mut digest.0[..]).unwrap();
+    println!("{}", &digest);
+
+    let mut digest: Digest<32> = Digest::new();
+    let mut ctx = Sha512_256::init();
+    ctx.update(&data[..]);
+    ctx.finish(&mut digest.0[..]).unwrap();
+    println!("{}", &digest);
+
+    let mut digest: Digest<44> = Digest::new();
+    let mut ctx: Shake128 = Shake128::init();
+    ctx.update(&data[..]);
+    ctx.finish(&mut digest.0[..44]).unwrap();
+    println!("{}", &digest);
+
+    let mut digest: Digest<44> = Digest::new();
+    let mut ctx: Shake256 = Shake256::init();
+    ctx.update(&data[..]);
+    if ctx.finish(&mut digest.0[..0]).is_err() {
+        println!("!!!!!!!!!!!!!!!!! ERROR !!!!!!!!!!!!!!!!!!!!!")
+    }
+    println!("{}", &digest);
 
     Ok(())
 }
