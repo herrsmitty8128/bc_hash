@@ -1,18 +1,54 @@
-# import the library module
-import sys
 import hashlib
 
-if sys.version_info < (3, 6):
-	import sha3
+if __name__ == '__main__':
 
-# initialize a string
-str = "GeeksforGeeks"
+    with open('./src/lib.rs', 'r') as f:
+        data = f.read().encode()
 
-# encode the string
-encoded_str = str.encode()
+    h = hashlib.new('sha3_224')
+    h.update(data)
+    print(h.hexdigest())
 
-# create sha3-256 hash objects
-obj_sha3_256 = hashlib.sha3_256(encoded_str)
+    h = hashlib.new('sha3_256')
+    h.update(data)
+    print(h.hexdigest())
 
-# print in hexadecimal
-print("\nSHA3-256 Hash:", obj_sha3_256.hexdigest())
+    h = hashlib.new('sha3_384')
+    h.update(data)
+    print(h.hexdigest())
+
+    h = hashlib.new('sha3_512')
+    h.update(data)
+    print(h.hexdigest())
+
+    h = hashlib.new('sha224')
+    h.update(data)
+    print(h.hexdigest())
+
+    h = hashlib.new('sha256')
+    h.update(data)
+    print(h.hexdigest())
+
+    h = hashlib.new('sha384')
+    h.update(data)
+    print(h.hexdigest())
+
+    h = hashlib.new('sha512')
+    h.update(data)
+    print(h.hexdigest())
+
+    h = hashlib.new('sha512-224')
+    h.update(data)
+    print(h.hexdigest())
+
+    h = hashlib.new('sha512-256')
+    h.update(data)
+    print(h.hexdigest())
+    
+    h = hashlib.new('SHAKE128')
+    h.update(data)
+    print(h.hexdigest(length=44))
+    
+    h = hashlib.new('SHAKE256')
+    h.update(data)
+    print(h.hexdigest(length=44))

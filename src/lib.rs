@@ -168,11 +168,12 @@ pub mod merkle {
     /// a record in a block of data. This function reduces the ```leaves``` argument down to a
     /// single element in the vector, which is the root. It returns a ```bool``` value indicating
     /// whether or not a mutation was encountered during the calculation.
-    pub fn compute_root<const MDLEN: usize, H: OneWayHash>(
-        leaves: &mut Vec<[u8; MDLEN]>,
-        hasher: &mut H,
-    ) -> error::Result<bool> {
+    pub fn compute_root<const MDLEN: usize, H>(leaves: &mut Vec<[u8; MDLEN]>) -> error::Result<bool>
+    where
+        H: OneWayHash<MDLEN>,
+    {
         let mut mutation: bool = false;
+        let mut hasher: H = H::init();
         while leaves.len() > 1 {
             for i in 0..leaves.len() - 1 {
                 // search for a mutation and set the mutation variable to true if we find one
@@ -187,10 +188,11 @@ pub mod merkle {
                     None => return Err(error::Error::InvalidMerkleLeaves), // should never get here
                 }
             }
-            for (i, j) in (0..leaves.len()).step_by(2).enumerate() {
+            for i in 0..(leaves.len() / 2) {
                 hasher
-                    .update(unsafe { std::slice::from_raw_parts(leaves[j].as_ptr(), 2 * MDLEN) })
-                    .finish(&mut leaves[i])?;
+                    .update(&leaves[i * 2])
+                    .update(&leaves[i * 2 + 1])
+                    .finish(&mut leaves[i]);
             }
             leaves.truncate(leaves.len() / 2)
         }
@@ -204,13 +206,16 @@ pub mod merkle {
 
     pub type Proof<const MDLEN: usize> = Vec<ChildNode<MDLEN>>;
 
-    pub fn compute_proof<const MDLEN: usize, H: OneWayHash>(
+    pub fn compute_proof<const MDLEN: usize, H>(
         leaves: &mut Vec<[u8; MDLEN]>,
         mut index: usize,
-        hasher: &mut H,
-    ) -> error::Result<(Proof<MDLEN>, bool)> {
+    ) -> error::Result<(Proof<MDLEN>, bool)>
+    where
+        H: OneWayHash<MDLEN>,
+    {
         let mut mutation: bool = false;
         let mut proof: Proof<MDLEN> = Proof::new();
+        let mut hasher: H = H::init();
         if index >= leaves.len() {
             Err(error::Error::InvalidIndex)
         } else {
@@ -231,59 +236,59 @@ pub mod merkle {
                 } else {
                     ChildNode::Right(leaves[index ^ 1])
                 });
-                for (i, j) in (0..leaves.len()).step_by(2).enumerate() {
+                for i in 0..(leaves.len() / 2) {
                     hasher
-                        .update(unsafe {
-                            std::slice::from_raw_parts(leaves[j].as_ptr(), 2 * MDLEN)
-                        })
-                        .finish(&mut leaves[i])?;
+                        .update(&leaves[i * 2])
+                        .update(&leaves[i * 2 + 1])
+                        .finish(&mut leaves[i]);
                 }
                 leaves.truncate(leaves.len() / 2);
-                index >>= 2;
+                index >>= 1;
             }
             Ok((proof, mutation))
         }
     }
 
-    pub fn prove<H: OneWayHash, const MDLEN: usize>(
-        merkle_proof: Proof<MDLEN>,
-        data_hash: &mut [u8; MDLEN],
-    ) -> error::Result<[u8; MDLEN]> {
-        let mut data: [[u8; MDLEN]; 2] = [[0; MDLEN]; 2];
-        let mut digest: [u8; MDLEN] = *data_hash;
+    pub fn prove<const MDLEN: usize, H>(merkle_proof: Proof<MDLEN>, digest: &mut [u8; MDLEN])
+    where
+        H: OneWayHash<MDLEN>,
+    {
         let mut hasher: H = H::init();
-        for child in merkle_proof.iter() {
-            match child {
+        for node in merkle_proof.iter() {
+            match node {
                 ChildNode::Left(sibling) => {
-                    data[0] = *sibling;
-                    data[1] = digest;
+                    hasher.update(sibling).update(&digest[..]).finish(digest);
                 }
                 ChildNode::Right(sibling) => {
-                    data[0] = digest;
-                    data[1] = *sibling;
+                    hasher.update(&digest[..]).update(sibling).finish(digest);
                 }
             }
-            hasher
-                .update(unsafe { std::slice::from_raw_parts(data[0].as_ptr(), 2 * MDLEN) })
-                .finish(&mut digest)?;
         }
-        Ok(digest)
     }
 }
 
-pub trait OneWayHash
+pub trait OneWayHash<const MDLEN: usize>
 where
     Self: Sized,
 {
     fn init() -> Self;
     fn reset(&mut self);
     fn update(&mut self, data: &[u8]) -> &mut Self;
-    fn finish(&mut self, digest: &mut [u8]) -> error::Result<()>;
+    fn finish(&mut self, digest: &mut [u8; MDLEN]);
+}
+
+pub trait FinishXOF
+where
+    Self: Sized,
+{
+    fn finish_xof(&mut self, digest: &mut [u8]);
 }
 
 pub mod sha3 {
 
     use std::marker::PhantomData;
+
+    use crate::FinishXOF;
 
     const KECCAKF_RNDC: [u64; 24] = [
         0x0000000000000001,
@@ -326,15 +331,15 @@ pub mod sha3 {
     }
 
     // state context
-    pub struct Context<const B: usize> {
+    pub struct Context<const B: usize, const D: usize> {
         st: State,
         pt: usize,
         rsiz: usize,
         _s: PhantomData<usize>,
     }
 
-    impl<const B: usize> Context<B> {
-        fn init() -> Context<B> {
+    impl<const B: usize, const D: usize> Context<B, D> {
+        fn init() -> Context<B, D> {
             Self {
                 st: State { q: [0; 25] },
                 pt: 0,
@@ -361,17 +366,12 @@ pub mod sha3 {
         }
 
         /// finalize and output a hash
-        fn finish(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
-            if digest.len() != B {
-                Err(crate::error::Error::InvalidDigestLength(B))
-            } else {
-                unsafe {
-                    self.st.b[self.pt] ^= 0x06;
-                    self.st.b[self.rsiz - 1] ^= 0x80;
-                    self.keccakf();
-                    digest.copy_from_slice(&self.st.b[..B]);
-                }
-                Ok(())
+        fn finish(&mut self, digest: &mut [u8; D]) {
+            unsafe {
+                self.st.b[self.pt] ^= 0x06;
+                self.st.b[self.rsiz - 1] ^= 0x80;
+                self.keccakf();
+                digest.copy_from_slice(&self.st.b[..D]);
             }
         }
 
@@ -384,23 +384,18 @@ pub mod sha3 {
             }
         }
 
-        fn shake_out(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
-            if digest.is_empty() {
-                Err(crate::error::Error::InvalidDigestLength(0))
-            } else {
-                unsafe {
-                    let mut j = self.pt;
-                    for byte in digest {
-                        if j >= self.rsiz {
-                            self.keccakf();
-                            j = 0;
-                        }
-                        *byte = self.st.b[j];
-                        j += 1;
+        fn shake_out(&mut self, digest: &mut [u8]) {
+            unsafe {
+                let mut j = self.pt;
+                for byte in digest {
+                    if j >= self.rsiz {
+                        self.keccakf();
+                        j = 0;
                     }
-                    self.pt = j;
+                    *byte = self.st.b[j];
+                    j += 1;
                 }
-                Ok(())
+                self.pt = j;
             }
         }
 
@@ -461,12 +456,12 @@ pub mod sha3 {
         }
     }
 
-    pub type Sha3_224 = Context<28>;
+    pub type Sha3_224 = Context<28, 28>;
 
-    impl super::OneWayHash for Sha3_224 {
+    impl super::OneWayHash<28> for Sha3_224 {
         #[inline]
         fn init() -> Sha3_224 {
-            Context::<28>::init()
+            Context::<28, 28>::init()
         }
 
         #[inline]
@@ -482,17 +477,17 @@ pub mod sha3 {
         }
 
         #[inline]
-        fn finish(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
+        fn finish(&mut self, digest: &mut [u8; 28]) {
             self.finish(digest)
         }
     }
 
-    pub type Sha3_256 = Context<32>;
+    pub type Sha3_256 = Context<32, 32>;
 
-    impl super::OneWayHash for Sha3_256 {
+    impl super::OneWayHash<32> for Sha3_256 {
         #[inline]
         fn init() -> Sha3_256 {
-            Context::<32>::init()
+            Context::<32, 32>::init()
         }
 
         #[inline]
@@ -508,17 +503,17 @@ pub mod sha3 {
         }
 
         #[inline]
-        fn finish(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
+        fn finish(&mut self, digest: &mut [u8; 32]) {
             self.finish(digest)
         }
     }
 
-    pub type Sha3_384 = Context<48>;
+    pub type Sha3_384 = Context<48, 48>;
 
-    impl super::OneWayHash for Sha3_384 {
+    impl super::OneWayHash<48> for Sha3_384 {
         #[inline]
         fn init() -> Sha3_384 {
-            Context::<48>::init()
+            Context::<48, 48>::init()
         }
 
         #[inline]
@@ -534,17 +529,17 @@ pub mod sha3 {
         }
 
         #[inline]
-        fn finish(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
+        fn finish(&mut self, digest: &mut [u8; 48]) {
             self.finish(digest)
         }
     }
 
-    pub type Sha3_512 = Context<64>;
+    pub type Sha3_512 = Context<64, 64>;
 
-    impl super::OneWayHash for Sha3_512 {
+    impl super::OneWayHash<64> for Sha3_512 {
         #[inline]
         fn init() -> Sha3_512 {
-            Context::<64>::init()
+            Context::<64, 64>::init()
         }
 
         #[inline]
@@ -560,20 +555,27 @@ pub mod sha3 {
         }
 
         #[inline]
-        fn finish(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
+        fn finish(&mut self, digest: &mut [u8; 64]) {
             self.finish(digest)
         }
     }
 
-    pub struct Shake128 {
-        ctx: Context<16>,
+    pub struct Shake128<const MDLEN: usize> {
+        ctx: Context<16, MDLEN>,
     }
 
-    impl super::OneWayHash for Shake128 {
+    impl<const MDLEN: usize> FinishXOF for Shake128<MDLEN> {
+        fn finish_xof(&mut self, digest: &mut [u8]) {
+            self.ctx.shake_xof();
+            self.ctx.shake_out(digest)
+        }
+    }
+
+    impl<const MDLEN: usize> super::OneWayHash<MDLEN> for Shake128<MDLEN> {
         #[inline]
-        fn init() -> Shake128 {
+        fn init() -> Shake128<MDLEN> {
             Shake128 {
-                ctx: Context::<16>::init(),
+                ctx: Context::<16, MDLEN>::init(),
             }
         }
 
@@ -585,27 +587,34 @@ pub mod sha3 {
         }
 
         #[inline]
-        fn update(&mut self, data: &[u8]) -> &mut Shake128 {
+        fn update(&mut self, data: &[u8]) -> &mut Shake128<MDLEN> {
             self.ctx.update(data);
             self
         }
 
         #[inline]
-        fn finish(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
+        fn finish(&mut self, digest: &mut [u8; MDLEN]) {
             self.ctx.shake_xof();
             self.ctx.shake_out(digest)
         }
     }
 
-    pub struct Shake256 {
-        ctx: Context<32>,
+    pub struct Shake256<const MDLEN: usize> {
+        ctx: Context<32, MDLEN>,
     }
 
-    impl super::OneWayHash for Shake256 {
+    impl<const MDLEN: usize> FinishXOF for Shake256<MDLEN> {
+        fn finish_xof(&mut self, digest: &mut [u8]) {
+            self.ctx.shake_xof();
+            self.ctx.shake_out(digest)
+        }
+    }
+
+    impl<const MDLEN: usize> super::OneWayHash<MDLEN> for Shake256<MDLEN> {
         #[inline]
-        fn init() -> Shake256 {
+        fn init() -> Shake256<MDLEN> {
             Shake256 {
-                ctx: Context::<32>::init(),
+                ctx: Context::<32, MDLEN>::init(),
             }
         }
 
@@ -617,13 +626,13 @@ pub mod sha3 {
         }
 
         #[inline]
-        fn update(&mut self, data: &[u8]) -> &mut Shake256 {
+        fn update(&mut self, data: &[u8]) -> &mut Shake256<MDLEN> {
             self.ctx.update(data);
             self
         }
 
         #[inline]
-        fn finish(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
+        fn finish(&mut self, digest: &mut [u8; MDLEN]) {
             self.ctx.shake_xof();
             self.ctx.shake_out(digest)
         }
@@ -908,7 +917,7 @@ pub mod sha2 {
                 if $s.msg_num == $chunk_len {
                     $extend;
                     $compress;
-                    $s.msg_sch.b.fill(0); // is this necessary?
+                    $s.msg_sch.b.fill(0); // is this necessary?????????????????????????
                     $s.msg_num = 0;
                 }
             }
@@ -917,30 +926,25 @@ pub mod sha2 {
 
     macro_rules! wrap_up {
         ($s:ident, $typ:ty, $digest:ident, $digest_len:literal, $chunk_len:literal) => {
-            if $digest.len() != $digest_len {
-                Err(crate::error::Error::InvalidDigestLength($digest_len))
-            } else {
-                let mut buf: Vec<u8> = Vec::new();
-                buf.push(128u8);
-                while (buf.len() + $s.msg_num + std::mem::size_of::<$typ>()) % $chunk_len != 0 {
-                    buf.push(0u8);
-                }
-                buf.extend_from_slice(&(($s.len * 8) as $typ).to_be_bytes());
-                $s.update(&buf);
-                for (i, w) in $digest
-                    .chunks_exact_mut(std::mem::size_of::<$typ>() / 2)
-                    .enumerate()
-                {
-                    w.clone_from_slice(&$s.st[i].to_be_bytes());
-                }
-                Ok(())
+            let mut buf: Vec<u8> = Vec::new();
+            buf.push(128u8);
+            while (buf.len() + $s.msg_num + std::mem::size_of::<$typ>()) % $chunk_len != 0 {
+                buf.push(0u8);
+            }
+            buf.extend_from_slice(&(($s.len * 8) as $typ).to_be_bytes());
+            $s.update(&buf);
+            for (i, w) in $digest
+                .chunks_exact_mut(std::mem::size_of::<$typ>() / 2)
+                .enumerate()
+            {
+                w.clone_from_slice(&$s.st[i].to_be_bytes());
             }
         };
     }
 
     pub type Sha224 = Context<256, 64, 28, u32>;
 
-    impl super::OneWayHash for Sha224 {
+    impl super::OneWayHash<28> for Sha224 {
         #[inline]
         fn init() -> Self {
             new_context!(INITIAL_VALUES_224)
@@ -973,14 +977,14 @@ pub mod sha2 {
         }
 
         #[inline]
-        fn finish(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
-            wrap_up!(self, u64, digest, 28, 64)
+        fn finish(&mut self, digest: &mut [u8; 28]) {
+            wrap_up!(self, u64, digest, 28, 64);
         }
     }
 
     pub type Sha256 = Context<256, 64, 32, u32>;
 
-    impl super::OneWayHash for Sha256 {
+    impl super::OneWayHash<32> for Sha256 {
         #[inline]
         fn init() -> Self {
             new_context!(INITIAL_VALUES_256)
@@ -1013,14 +1017,14 @@ pub mod sha2 {
         }
 
         #[inline]
-        fn finish(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
-            wrap_up!(self, u64, digest, 32, 64)
+        fn finish(&mut self, digest: &mut [u8; 32]) {
+            wrap_up!(self, u64, digest, 32, 64);
         }
     }
 
     pub type Sha384 = Context<320, 80, 48, u64>;
 
-    impl super::OneWayHash for Sha384 {
+    impl super::OneWayHash<48> for Sha384 {
         #[inline]
         fn init() -> Self {
             new_context!(INITIAL_VALUES_384)
@@ -1053,14 +1057,14 @@ pub mod sha2 {
         }
 
         #[inline]
-        fn finish(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
-            wrap_up!(self, u128, digest, 48, 128)
+        fn finish(&mut self, digest: &mut [u8; 48]) {
+            wrap_up!(self, u128, digest, 48, 128);
         }
     }
 
     pub type Sha512 = Context<320, 80, 64, u64>;
 
-    impl super::OneWayHash for Sha512 {
+    impl super::OneWayHash<64> for Sha512 {
         #[inline]
         fn init() -> Self {
             new_context!(INITIAL_VALUES_512)
@@ -1093,14 +1097,14 @@ pub mod sha2 {
         }
 
         #[inline]
-        fn finish(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
-            wrap_up!(self, u128, digest, 64, 128)
+        fn finish(&mut self, digest: &mut [u8; 64]) {
+            wrap_up!(self, u128, digest, 64, 128);
         }
     }
 
     pub type Sha512_224 = Context<320, 80, 28, u64>;
 
-    impl super::OneWayHash for Sha512_224 {
+    impl super::OneWayHash<28> for Sha512_224 {
         #[inline]
         fn init() -> Self {
             new_context!(INITIAL_VALUES_512_224)
@@ -1133,17 +1137,16 @@ pub mod sha2 {
         }
 
         #[inline]
-        fn finish(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
-            wrap_up!(self, u128, digest, 28, 128)?;
+        fn finish(&mut self, digest: &mut [u8; 28]) {
+            wrap_up!(self, u128, digest, 28, 128);
             // fill in the last four bytes
             digest[24..28].clone_from_slice(&self.st[3].to_be_bytes()[0..4]);
-            Ok(())
         }
     }
 
     pub type Sha512_256 = Context<320, 80, 32, u64>;
 
-    impl super::OneWayHash for Sha512_256 {
+    impl super::OneWayHash<32> for Sha512_256 {
         #[inline]
         fn init() -> Self {
             new_context!(INITIAL_VALUES_512_256)
@@ -1176,8 +1179,8 @@ pub mod sha2 {
         }
 
         #[inline]
-        fn finish(&mut self, digest: &mut [u8]) -> crate::error::Result<()> {
-            wrap_up!(self, u128, digest, 32, 128)
+        fn finish(&mut self, digest: &mut [u8; 32]) {
+            wrap_up!(self, u128, digest, 32, 128);
         }
     }
 }

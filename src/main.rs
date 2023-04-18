@@ -15,75 +15,73 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut digest: Digest<28> = Digest::new();
     let mut ctx = Sha3_224::init();
     ctx.update(&data[..]);
-    ctx.finish(&mut digest.0[..]).unwrap();
+    ctx.finish(&mut digest.0);
     println!("{}", &digest);
 
     let mut digest: Digest<32> = Digest::new();
     let mut ctx = Sha3_256::init();
     ctx.update(&data[..]);
-    ctx.finish(&mut digest.0[..]).unwrap();
+    ctx.finish(&mut digest.0);
     println!("{}", &digest);
 
     let mut digest: Digest<48> = Digest::new();
     let mut ctx = Sha3_384::init();
     ctx.update(&data[..]);
-    ctx.finish(&mut digest.0[..]).unwrap();
+    ctx.finish(&mut digest.0);
     println!("{}", &digest);
 
     let mut digest: Digest<64> = Digest::new();
     let mut ctx = Sha3_512::init();
     ctx.update(&data[..]);
-    ctx.finish(&mut digest.0[..]).unwrap();
+    ctx.finish(&mut digest.0);
     println!("{}", &digest);
 
     let mut digest: Digest<28> = Digest::new();
     let mut ctx = Sha224::init();
     ctx.update(&data[..]);
-    ctx.finish(&mut digest.0[..]).unwrap();
+    ctx.finish(&mut digest.0);
     println!("{}", &digest);
 
     let mut digest: Digest<32> = Digest::new();
     let mut ctx = Sha256::init();
     ctx.update(&data[..]);
-    ctx.finish(&mut digest.0[..]).unwrap();
+    ctx.finish(&mut digest.0);
     println!("{}", &digest);
 
     let mut digest: Digest<48> = Digest::new();
     let mut ctx = Sha384::init();
     ctx.update(&data[..]);
-    ctx.finish(&mut digest.0[..]).unwrap();
+    ctx.finish(&mut digest.0);
     println!("{}", &digest);
 
     let mut digest: Digest<64> = Digest::new();
     let mut ctx = Sha512::init();
     ctx.update(&data[..]);
-    ctx.finish(&mut digest.0[..]).unwrap();
+    ctx.finish(&mut digest.0);
     println!("{}", &digest);
 
     let mut digest: Digest<28> = Digest::new();
     let mut ctx = Sha512_224::init();
     ctx.update(&data[..]);
-    ctx.finish(&mut digest.0[..]).unwrap();
+    ctx.finish(&mut digest.0);
     println!("{}", &digest);
 
     let mut digest: Digest<32> = Digest::new();
     let mut ctx = Sha512_256::init();
     ctx.update(&data[..]);
-    ctx.finish(&mut digest.0[..]).unwrap();
+    ctx.finish(&mut digest.0);
     println!("{}", &digest);
 
     let mut digest: Digest<44> = Digest::new();
-    let mut ctx: Shake128 = Shake128::init();
+    let mut ctx: Shake128<44> = Shake128::init();
     ctx.update(&data[..]);
-    ctx.finish(&mut digest.0[..44]).unwrap();
+    ctx.finish(&mut digest.0);
     println!("{}", &digest);
 
     let mut digest: Digest<44> = Digest::new();
-    let mut ctx: Shake256 = Shake256::init();
+    let mut ctx: Shake256<44> = Shake256::init();
     ctx.update(&data[..]);
-    if ctx.finish(&mut digest.0[..0]).is_err() {
-        println!("!!!!!!!!!!!!!!!!! ERROR !!!!!!!!!!!!!!!!!!!!!")
-    }
+    ctx.finish(&mut digest.0);
     println!("{}", &digest);
 
     Ok(())
