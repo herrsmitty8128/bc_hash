@@ -249,12 +249,12 @@ pub mod merkle {
         }
     }
 
-    pub fn prove<const MDLEN: usize, H>(merkle_proof: Proof<MDLEN>, digest: &mut [u8; MDLEN])
+    pub fn prove<const MDLEN: usize, H>(proof: Proof<MDLEN>, digest: &mut [u8; MDLEN])
     where
         H: OneWayHash<MDLEN>,
     {
         let mut hasher: H = H::init();
-        for node in merkle_proof.iter() {
+        for node in proof.iter() {
             match node {
                 ChildNode::Left(sibling) => {
                     hasher.update(sibling).update(&digest[..]).finish(digest);
@@ -917,7 +917,7 @@ pub mod sha2 {
                 if $s.msg_num == $chunk_len {
                     $extend;
                     $compress;
-                    $s.msg_sch.b.fill(0); // is this necessary?????????????????????????
+                    //$s.msg_sch.b.fill(0); // is this necessary?????????????????????????
                     $s.msg_num = 0;
                 }
             }
