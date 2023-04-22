@@ -1,3 +1,7 @@
+// Copyright (c) 2023 herrsmitty8128
+// Distributed under the MIT software license, see the accompanying
+// file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
+use crate::error::Error;
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
@@ -75,7 +79,7 @@ impl<const S: usize> IndexMut<usize> for Digest<S> {
 }
 
 impl<const S: usize> FromStr for Digest<S> {
-    type Err = crate::error::Error;
+    type Err = Error;
     /// Attempts to create a new sha-256 digest from a string. The string must be 64 characters
     /// in hexidecimal format and may include the "0x" prefix. Ok(Digest) is returned on success.
     ///  Err(String) is returned on failure.
@@ -86,8 +90,8 @@ impl<const S: usize> FromStr for Digest<S> {
             src = s
         }
         match src.len().cmp(&(S * 2)) {
-            Ordering::Greater => Err(crate::error::Error::StringTooLong),
-            Ordering::Less => Err(crate::error::Error::StringTooShort),
+            Ordering::Greater => Err(Error::StringTooLong),
+            Ordering::Less => Err(Error::StringTooShort),
             Ordering::Equal => {
                 let mut digest: Digest<S> = Digest::new();
                 for (i, offset) in (0..(S * 2)).step_by(2).enumerate() {
@@ -109,10 +113,10 @@ impl<const S: usize> Digest<S> {
         self.0.len()
     }
 
-    pub fn from_bytes(bytes: &mut [u8]) -> std::result::Result<Digest<S>, crate::error::Error> {
+    pub fn from_bytes(bytes: &mut [u8]) -> std::result::Result<Digest<S>, Error> {
         match bytes.len().cmp(&S) {
-            Ordering::Greater => Err(crate::error::Error::SliceTooLong),
-            Ordering::Less => Err(crate::error::Error::SliceTooShort),
+            Ordering::Greater => Err(Error::SliceTooLong),
+            Ordering::Less => Err(Error::SliceTooShort),
             Ordering::Equal => {
                 let mut digest: Digest<S> = Digest::new();
                 digest.0.clone_from_slice(bytes);
