@@ -14,18 +14,6 @@ use std::{
     vec,
 };
 
-/// Returns Ok(()) if the file is not empty and the total files size is an even multiple of the block size.
-fn validate_size(file: &File, block_size: usize) -> Result<()> {
-    let size: u64 = file.metadata()?.len();
-    if size == 0 {
-        Err(Error::FileIsEmpty)
-    } else if size % block_size as u64 != 0 {
-        Err(Error::InvalidFileSize)
-    } else {
-        Ok(())
-    }
-}
-
 /// Returns the size of the underlying blockchain file in bytes.
 fn file_size(file: &File) -> Result<u64> {
     Ok(file.metadata()?.len())
@@ -40,6 +28,18 @@ fn block_count(file: &File, block_size: usize) -> Result<u64> {
         Err(Error::InvalidFileSize)
     } else {
         Ok(file_size / block_size as u64)
+    }
+}
+
+/// Returns Ok(()) if the file is not empty and the total files size is an even multiple of the block size.
+fn validate_size(file: &File, block_size: usize) -> Result<()> {
+    let size: u64 = file.metadata()?.len();
+    if size == 0 {
+        Err(Error::FileIsEmpty)
+    } else if size % block_size as u64 != 0 {
+        Err(Error::InvalidFileSize)
+    } else {
+        Ok(())
     }
 }
 
