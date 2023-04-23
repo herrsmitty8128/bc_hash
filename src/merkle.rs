@@ -31,6 +31,7 @@ where
         }
         for i in 0..(leaves.len() / 2) {
             hasher
+                .reset()
                 .update(&leaves[i * 2])
                 .update(&leaves[i * 2 + 1])
                 .finish(&mut leaves[i]);
@@ -79,6 +80,7 @@ where
             });
             for i in 0..(leaves.len() / 2) {
                 hasher
+                    .reset()
                     .update(&leaves[i * 2])
                     .update(&leaves[i * 2 + 1])
                     .finish(&mut leaves[i]);
@@ -98,10 +100,18 @@ where
     for node in proof.iter() {
         match node {
             ChildNode::Left(sibling) => {
-                hasher.update(sibling).update(&digest[..]).finish(digest);
+                hasher
+                    .reset()
+                    .update(sibling)
+                    .update(&digest[..])
+                    .finish(digest);
             }
             ChildNode::Right(sibling) => {
-                hasher.update(&digest[..]).update(sibling).finish(digest);
+                hasher
+                    .reset()
+                    .update(&digest[..])
+                    .update(sibling)
+                    .finish(digest);
             }
         }
     }

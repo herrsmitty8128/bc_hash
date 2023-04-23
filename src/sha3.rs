@@ -180,10 +180,11 @@ impl OneWayHasher<28> for Sha3_224 {
     }
 
     #[inline]
-    fn reset(&mut self) {
+    fn reset(&mut self) -> &mut Self {
         self.st = State { q: [0; 25] };
         self.pt = 0;
         self.rsiz = 200 - (2 * 28);
+        self
     }
 
     #[inline]
@@ -218,10 +219,11 @@ impl OneWayHasher<32> for Sha3_256 {
     }
 
     #[inline]
-    fn reset(&mut self) {
+    fn reset(&mut self) -> &mut Self {
         self.st = State { q: [0; 25] };
         self.pt = 0;
         self.rsiz = 200 - (2 * 32);
+        self
     }
 
     #[inline]
@@ -256,10 +258,11 @@ impl OneWayHasher<48> for Sha3_384 {
     }
 
     #[inline]
-    fn reset(&mut self) {
+    fn reset(&mut self) -> &mut Self {
         self.st = State { q: [0; 25] };
         self.pt = 0;
         self.rsiz = 200 - (2 * 48);
+        self
     }
 
     #[inline]
@@ -294,10 +297,11 @@ impl OneWayHasher<64> for Sha3_512 {
     }
 
     #[inline]
-    fn reset(&mut self) {
+    fn reset(&mut self) -> &mut Self {
         self.st = State { q: [0; 25] };
         self.pt = 0;
         self.rsiz = 200 - (2 * 64);
+        self
     }
 
     #[inline]
@@ -343,10 +347,11 @@ impl<const MDLEN: usize> OneWayHasher<MDLEN> for Shake128<MDLEN> {
     }
 
     #[inline]
-    fn reset(&mut self) {
+    fn reset(&mut self) -> &mut Self {
         self.ctx.st = State { q: [0; 25] };
         self.ctx.pt = 0;
         self.ctx.rsiz = 200 - (2 * 16);
+        self
     }
 
     #[inline]
@@ -393,10 +398,11 @@ impl<const MDLEN: usize> OneWayHasher<MDLEN> for Shake256<MDLEN> {
     }
 
     #[inline]
-    fn reset(&mut self) {
+    fn reset(&mut self) -> &mut Self {
         self.ctx.st = State { q: [0; 25] };
         self.ctx.pt = 0;
         self.ctx.rsiz = 200 - (2 * 32);
+        self
     }
 
     #[inline]

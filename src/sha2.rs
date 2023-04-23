@@ -310,11 +310,12 @@ impl OneWayHasher<28> for Sha224 {
     }
 
     #[inline]
-    fn reset(&mut self) {
+    fn reset(&mut self) -> &mut Self {
         self.st = INITIAL_VALUES_224;
         self.msg_sch = MsgSch { b: [0; 256] };
         self.msg_num = 0;
         self.len = 0;
+        self
     }
 
     #[inline]
@@ -361,11 +362,12 @@ impl OneWayHasher<32> for Sha256 {
     }
 
     #[inline]
-    fn reset(&mut self) {
+    fn reset(&mut self) -> &mut Self {
         self.st = INITIAL_VALUES_256;
         self.msg_sch = MsgSch { b: [0; 256] };
         self.msg_num = 0;
         self.len = 0;
+        self
     }
 
     #[inline]
@@ -412,11 +414,12 @@ impl OneWayHasher<48> for Sha384 {
     }
 
     #[inline]
-    fn reset(&mut self) {
+    fn reset(&mut self) -> &mut Self {
         self.st = INITIAL_VALUES_384;
         self.msg_sch = MsgSch { b: [0; 320] };
         self.msg_num = 0;
         self.len = 0;
+        self
     }
 
     #[inline]
@@ -463,11 +466,12 @@ impl OneWayHasher<64> for Sha512 {
     }
 
     #[inline]
-    fn reset(&mut self) {
+    fn reset(&mut self) -> &mut Self {
         self.st = INITIAL_VALUES_512;
         self.msg_sch = MsgSch { b: [0; 320] };
         self.msg_num = 0;
         self.len = 0;
+        self
     }
 
     #[inline]
@@ -514,11 +518,12 @@ impl OneWayHasher<28> for Sha512_224 {
     }
 
     #[inline]
-    fn reset(&mut self) {
+    fn reset(&mut self) -> &mut Self {
         self.st = INITIAL_VALUES_512_224;
         self.msg_sch = MsgSch { b: [0; 320] };
         self.msg_num = 0;
         self.len = 0;
+        self
     }
 
     #[inline]
@@ -567,11 +572,12 @@ impl OneWayHasher<32> for Sha512_256 {
     }
 
     #[inline]
-    fn reset(&mut self) {
+    fn reset(&mut self) -> &mut Self {
         self.st = INITIAL_VALUES_512_256;
         self.msg_sch = MsgSch { b: [0; 320] };
         self.msg_num = 0;
         self.len = 0;
+        self
     }
 
     #[inline]

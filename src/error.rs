@@ -13,6 +13,7 @@ pub enum Error {
     FileIsEmpty,
     IntegerOverflow,
     InvalidBlockHash(u64),
+    InvalidBlockSize(u64),
     InvalidDataLength(usize),
     InvalidDigestLength(usize),
     InvalidFileSize,
@@ -57,6 +58,7 @@ impl Display for Error {
                 f.write_str("Integer overflowed when calculating file position.")
             }
             InvalidBlockHash(n) => f.write_fmt(format_args!("The previous block hash saved in block number {} is not the same as the previous block's hash", n)),
+            InvalidBlockSize(n) => f.write_fmt(format_args!("Block size {} is not valid", n)),
             InvalidDataLength(n) => {
                 f.write_fmt(format_args!("Data length {} is not valid", n))
             }

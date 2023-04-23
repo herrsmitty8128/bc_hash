@@ -26,7 +26,7 @@ where
     Self: Sized,
 {
     fn init() -> Self;
-    fn reset(&mut self);
+    fn reset(&mut self) -> &mut Self;
     fn update(&mut self, data: &[u8]) -> &mut Self;
     fn finish(&mut self, digest: &mut [u8; MDLEN]);
 }

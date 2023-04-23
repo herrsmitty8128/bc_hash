@@ -13,9 +13,9 @@ use std::io::Read;
 
 macro_rules! cmp_fixed_len_digests {
     ($bc_type:ty, $other_type:ty, $mdlen:literal, $data:ident, $msg:literal) => {
+        let mut digest: bc_hash::digest::Digest<$mdlen> = bc_hash::digest::Digest::new();
+        let mut ctx = <$bc_type>::init();
         let a = {
-            let mut digest: bc_hash::digest::Digest<$mdlen> = bc_hash::digest::Digest::new();
-            let mut ctx = <$bc_type>::init();
             ctx.update(&$data[..]);
             ctx.finish(&mut digest.0);
             digest.0
@@ -28,14 +28,21 @@ macro_rules! cmp_fixed_len_digests {
             digest
         };
         assert!(a == b, "{}", $msg);
+        let c = {
+            ctx.reset();
+            ctx.update(&$data[..]);
+            ctx.finish(&mut digest.0);
+            digest.0
+        };
+        assert!(a == c, "Reset failed for {:?}", digest);
     };
 }
 
 macro_rules! cmp_variable_len_digests {
     ($bc_type:ty, $other_type:ty, $mdlen:literal, $data:ident, $msg:literal) => {
+        let mut digest: bc_hash::digest::Digest<$mdlen> = bc_hash::digest::Digest::new();
+        let mut ctx = <$bc_type>::init();
         let a = {
-            let mut digest: bc_hash::digest::Digest<$mdlen> = bc_hash::digest::Digest::new();
-            let mut ctx = <$bc_type>::init();
             ctx.update(&$data[..]);
             ctx.finish(&mut digest.0);
             digest.0
@@ -49,6 +56,13 @@ macro_rules! cmp_variable_len_digests {
             res1
         };
         assert!(a == b, "{}", $msg);
+        let c = {
+            ctx.reset();
+            ctx.update(&$data[..]);
+            ctx.finish(&mut digest.0);
+            digest.0
+        };
+        assert!(a == c, "Reset failed for {:?}", digest);
     };
 }
 

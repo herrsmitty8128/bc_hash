@@ -79,6 +79,12 @@ impl<const S: usize> IndexMut<usize> for Digest<S> {
     }
 }
 
+impl<const S: usize> From<[u8; S]> for Digest<S> {
+    fn from(byte_array: [u8; S]) -> Self {
+        Self(byte_array)
+    }
+}
+
 impl<const S: usize> FromStr for Digest<S> {
     type Err = Error;
     /// Attempts to create a new sha-256 digest from a string. The string must be 64 characters
