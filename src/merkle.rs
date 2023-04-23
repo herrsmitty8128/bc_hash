@@ -1,8 +1,9 @@
 // Copyright (c) 2023 herrsmitty8128
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
+
 use crate::error;
-use crate::OneWayHash;
+use crate::OneWayHasher;
 
 /// Calculates the merkle root for a vector of leaves where each leaf is the hash digest of
 /// a record in a block of data. This function reduces the ```leaves``` argument down to a
@@ -10,7 +11,7 @@ use crate::OneWayHash;
 /// whether or not a mutation was encountered during the calculation.
 pub fn compute_root<const MDLEN: usize, H>(leaves: &mut Vec<[u8; MDLEN]>) -> error::Result<bool>
 where
-    H: OneWayHash<MDLEN>,
+    H: OneWayHasher<MDLEN>,
 {
     let mut mutation: bool = false;
     let mut hasher: H = H::init();
@@ -51,7 +52,7 @@ pub fn compute_proof<const MDLEN: usize, H>(
     mut index: usize,
 ) -> error::Result<(Proof<MDLEN>, bool)>
 where
-    H: OneWayHash<MDLEN>,
+    H: OneWayHasher<MDLEN>,
 {
     let mut mutation: bool = false;
     let mut proof: Proof<MDLEN> = Proof::new();
@@ -91,7 +92,7 @@ where
 
 pub fn prove<const MDLEN: usize, H>(proof: Proof<MDLEN>, digest: &mut [u8; MDLEN])
 where
-    H: OneWayHash<MDLEN>,
+    H: OneWayHasher<MDLEN>,
 {
     let mut hasher: H = H::init();
     for node in proof.iter() {

@@ -1,7 +1,8 @@
 // Copyright (c) 2023 herrsmitty8128
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
-use crate::OneWayHash;
+
+use crate::OneWayHasher;
 use std::marker::PhantomData;
 
 /// https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf
@@ -302,7 +303,7 @@ macro_rules! wrap_up {
 
 pub type Sha224 = Context<256, 64, 28, u32>;
 
-impl OneWayHash<28> for Sha224 {
+impl OneWayHasher<28> for Sha224 {
     #[inline]
     fn init() -> Self {
         new_context!(INITIAL_VALUES_224)
@@ -353,7 +354,7 @@ impl std::io::Write for Sha224 {
 
 pub type Sha256 = Context<256, 64, 32, u32>;
 
-impl OneWayHash<32> for Sha256 {
+impl OneWayHasher<32> for Sha256 {
     #[inline]
     fn init() -> Self {
         new_context!(INITIAL_VALUES_256)
@@ -404,7 +405,7 @@ impl std::io::Write for Sha256 {
 
 pub type Sha384 = Context<320, 80, 48, u64>;
 
-impl OneWayHash<48> for Sha384 {
+impl OneWayHasher<48> for Sha384 {
     #[inline]
     fn init() -> Self {
         new_context!(INITIAL_VALUES_384)
@@ -455,7 +456,7 @@ impl std::io::Write for Sha384 {
 
 pub type Sha512 = Context<320, 80, 64, u64>;
 
-impl OneWayHash<64> for Sha512 {
+impl OneWayHasher<64> for Sha512 {
     #[inline]
     fn init() -> Self {
         new_context!(INITIAL_VALUES_512)
@@ -506,7 +507,7 @@ impl std::io::Write for Sha512 {
 
 pub type Sha512_224 = Context<320, 80, 28, u64>;
 
-impl OneWayHash<28> for Sha512_224 {
+impl OneWayHasher<28> for Sha512_224 {
     #[inline]
     fn init() -> Self {
         new_context!(INITIAL_VALUES_512_224)
@@ -559,7 +560,7 @@ impl std::io::Write for Sha512_224 {
 
 pub type Sha512_256 = Context<320, 80, 32, u64>;
 
-impl OneWayHash<32> for Sha512_256 {
+impl OneWayHasher<32> for Sha512_256 {
     #[inline]
     fn init() -> Self {
         new_context!(INITIAL_VALUES_512_256)

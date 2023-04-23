@@ -1,8 +1,9 @@
 // Copyright (c) 2023 herrsmitty8128
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
+
 use crate::FinishXOF;
-use crate::OneWayHash;
+use crate::OneWayHasher;
 use std::marker::PhantomData;
 
 const KECCAKF_RNDC: [u64; 24] = [
@@ -172,7 +173,7 @@ impl<const B: usize, const D: usize> Context<B, D> {
 
 pub type Sha3_224 = Context<28, 28>;
 
-impl OneWayHash<28> for Sha3_224 {
+impl OneWayHasher<28> for Sha3_224 {
     #[inline]
     fn init() -> Sha3_224 {
         Context::<28, 28>::init()
@@ -210,7 +211,7 @@ impl std::io::Write for Sha3_224 {
 
 pub type Sha3_256 = Context<32, 32>;
 
-impl OneWayHash<32> for Sha3_256 {
+impl OneWayHasher<32> for Sha3_256 {
     #[inline]
     fn init() -> Sha3_256 {
         Context::<32, 32>::init()
@@ -248,7 +249,7 @@ impl std::io::Write for Sha3_256 {
 
 pub type Sha3_384 = Context<48, 48>;
 
-impl OneWayHash<48> for Sha3_384 {
+impl OneWayHasher<48> for Sha3_384 {
     #[inline]
     fn init() -> Sha3_384 {
         Context::<48, 48>::init()
@@ -286,7 +287,7 @@ impl std::io::Write for Sha3_384 {
 
 pub type Sha3_512 = Context<64, 64>;
 
-impl OneWayHash<64> for Sha3_512 {
+impl OneWayHasher<64> for Sha3_512 {
     #[inline]
     fn init() -> Sha3_512 {
         Context::<64, 64>::init()
@@ -333,7 +334,7 @@ impl<const MDLEN: usize> FinishXOF for Shake128<MDLEN> {
     }
 }
 
-impl<const MDLEN: usize> OneWayHash<MDLEN> for Shake128<MDLEN> {
+impl<const MDLEN: usize> OneWayHasher<MDLEN> for Shake128<MDLEN> {
     #[inline]
     fn init() -> Shake128<MDLEN> {
         Shake128 {
@@ -383,7 +384,7 @@ impl<const MDLEN: usize> FinishXOF for Shake256<MDLEN> {
     }
 }
 
-impl<const MDLEN: usize> OneWayHash<MDLEN> for Shake256<MDLEN> {
+impl<const MDLEN: usize> OneWayHasher<MDLEN> for Shake256<MDLEN> {
     #[inline]
     fn init() -> Shake256<MDLEN> {
         Shake256 {
