@@ -36,6 +36,10 @@ pub trait BlockData {
         Self: Sized;
 }
 
-pub trait BlockChainFile {
-
+pub trait DataLayer<const DIGEST_SIZE: usize, const BLOCK_SIZE: usize, T, H>
+where
+    T: BlockData,
+    H: OneWayHasher<DIGEST_SIZE>,
+{
+    // need to implement
 }
