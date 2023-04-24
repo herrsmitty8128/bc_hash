@@ -9,18 +9,6 @@ pub mod merkle;
 pub mod sha2;
 pub mod sha3;
 
-pub trait Serialize {
-    /// Transmutate an object into an array of bytes.
-    fn serialize(&self, buf: &mut [u8]) -> error::Result<()>;
-}
-
-pub trait Deserialize {
-    /// Transmutate an array of bytes into a new object.
-    fn deserialize(buf: &[u8]) -> error::Result<Self>
-    where
-        Self: Sized;
-}
-
 pub trait OneWayHasher<const MDLEN: usize>: std::io::Write
 where
     Self: Sized,
@@ -36,4 +24,18 @@ where
     Self: Sized,
 {
     fn finish_xof(&mut self, digest: &mut [u8]);
+}
+
+pub trait BlockData {
+    /// Transmutate an object into an array of bytes.
+    fn serialize(&self, buf: &mut [u8]) -> error::Result<()>;
+
+    /// Transmutate an array of bytes into a new object.
+    fn deserialize(buf: &[u8]) -> error::Result<Self>
+    where
+        Self: Sized;
+}
+
+pub trait BlockChainFile {
+
 }

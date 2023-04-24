@@ -37,7 +37,7 @@ impl<const BLOCK_SIZE: u64> Read for BlockReader<BLOCK_SIZE> {
 
 impl<const BLOCK_SIZE: u64> Seek for BlockReader<BLOCK_SIZE> {
     fn seek(&mut self, block_index: SeekFrom) -> Result<u64> {
-        self.inner.seek(match block_index {
+        Ok(self.inner.seek(match block_index {
             SeekFrom::Start(index) => SeekFrom::Start(
                 index
                     .checked_mul(BLOCK_SIZE)
@@ -53,7 +53,7 @@ impl<const BLOCK_SIZE: u64> Seek for BlockReader<BLOCK_SIZE> {
                     .checked_mul(BLOCK_SIZE as i64)
                     .ok_or_else(|| Error::new(ErrorKind::Other, "Integer overflow"))?,
             ),
-        })
+        })? / BLOCK_SIZE)
     }
 
     #[inline]
@@ -77,9 +77,7 @@ impl<const BLOCK_SIZE: u64> Seek for BlockReader<BLOCK_SIZE> {
 impl<const BLOCK_SIZE: u64> BlockReader<BLOCK_SIZE> {
     /// Creates and returns a new reader object.
     pub fn new(path: &Path) -> Result<BlockReader<BLOCK_SIZE>> {
-        if !path.is_file() {
-            Err(Error::new(ErrorKind::Other, "Path is not a file."))
-        } else if BLOCK_SIZE == 0 || BLOCK_SIZE > MAX_BLOCK_SIZE {
+        if BLOCK_SIZE == 0 || BLOCK_SIZE > MAX_BLOCK_SIZE {
             Err(Error::new(
                 ErrorKind::Other,
                 "Block size must be 0 < BLOCK_SIZE < MAX_BLOCK_SIZE.",
@@ -123,15 +121,13 @@ pub struct BlockWriter<const BLOCK_SIZE: u64> {
 impl<const BLOCK_SIZE: u64> BlockWriter<BLOCK_SIZE> {
     /// Creates and returns an new ```Writer```.
     pub fn new(path: &Path) -> Result<Self> {
-        if !path.is_file() {
-            Err(Error::new(ErrorKind::Other, "Path is not a file."))
-        } else if BLOCK_SIZE == 0 || BLOCK_SIZE > MAX_BLOCK_SIZE {
+        if BLOCK_SIZE == 0 || BLOCK_SIZE > MAX_BLOCK_SIZE {
             Err(Error::new(
                 ErrorKind::Other,
                 "Block size must be 0 < BLOCK_SIZE < MAX_BLOCK_SIZE.",
             ))
         } else {
-            let file = if path.exists() {
+            let file = if path.is_file() {
                 File::options().write(true).read(false).open(path)?
             } else {
                 File::options()
