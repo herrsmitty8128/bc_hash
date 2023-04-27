@@ -8,6 +8,9 @@ pub mod io;
 pub mod merkle;
 pub mod sha2;
 pub mod sha3;
+use error::Result;
+use merkle::Proof;
+use std::ops::Range;
 
 pub trait OneWayHasher<const MDLEN: usize>: std::io::Write
 where
@@ -26,20 +29,37 @@ where
     fn finish_xof(&mut self, digest: &mut [u8]);
 }
 
-pub trait BlockData {
+pub trait Block
+where
+    Self: Sized,
+{
     /// Transmutate an object into an array of bytes.
     fn serialize(&self, buf: &mut [u8]) -> error::Result<()>;
 
     /// Transmutate an array of bytes into a new object.
-    fn deserialize(buf: &[u8]) -> error::Result<Self>
-    where
-        Self: Sized;
+    fn deserialize(buf: &[u8]) -> error::Result<Self>;
 }
 
 pub trait DataLayer<const DIGEST_SIZE: usize, const BLOCK_SIZE: usize, T, H>
 where
-    T: BlockData,
+    T: Block,
     H: OneWayHasher<DIGEST_SIZE>,
 {
-    // need to implement
+    /// Returns the current block count.
+    fn count(&self) -> u64;
+
+    /// Validates a ranges of blocks.
+    fn validate(&self, range: Range<usize>) -> Result<()>;
+
+    /// Appends a collection of blocks to the end of the blockchain.
+    fn append(&self) -> Result<()>;
+
+    /// Returns the state (hash digest of the last block) of the blockchain.
+    fn state(&self) -> Result<()>;
+
+    /// Returns a merkle proof for the record at ```index`` in ```block```.
+    fn prove(&self, block: usize, index: usize) -> Result<Proof<DIGEST_SIZE>>;
+
+    /// Returns a block.
+    fn get(&self);
 }

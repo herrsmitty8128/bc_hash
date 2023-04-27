@@ -3,7 +3,7 @@
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
 
 use bc_hash::{
-    io::{BlockReader, BlockWriter},
+    io::BlockStream,
     OneWayHasher,
 };
 use sha2::Digest;
@@ -173,6 +173,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     // establish the file path and delete it if it already exists
     // test crate::io::BlockReader and crate::io::BlockWriter
     let path: &Path = Path::new("./test.blocks");
+    
+    if path.exists() {
+        std::fs::remove_file(path)?;
+    }
+
     let data: Vec<&str> = vec![
         "hello world",
         "thisxxxxxxx",
@@ -182,17 +187,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         "dataxxxxxxx",
     ];
     let mut buf: [u8; 11] = [0; 11];
-    let mut writer: BlockWriter<11> = BlockWriter::new(path)?;
+    let mut stream: BlockStream<11> = BlockStream::new(path)?;
     for d in &data {
-        writer.write(d.as_bytes())?;
+        stream.write_all(d.as_bytes())?;
     }
-    let mut reader: BlockReader<11> = BlockReader::new(path)?;
+
+    stream.rewind()?;
+
     let mut pos = 0;
     loop {
-        match reader.read(&mut buf) {
+        match stream.read(&mut buf) {
             Ok(_) => {
                 assert!(
-                    String::from_utf8(Vec::from(buf))? == String::from(data[pos as usize]),
+                    String::from_utf8(Vec::from(buf))? == *data[pos as usize], //String::from(data[pos as usize]),
                     "reader.read() failed to read the correct data."
                 );
             }
@@ -206,21 +213,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         pos += 1;
     }
-    pos = reader.seek(SeekFrom::End(-2))?;
+    pos = stream.seek(SeekFrom::End(-2))?;
     assert!(
         pos == 4,
         "reader.seek() failed to return the correct position."
     );
-    reader.read(&mut buf)?;
+    stream.read_exact(&mut buf)?;
     assert!(
-        String::from_utf8(Vec::from(buf))? == String::from(data[pos as usize]),
+        String::from_utf8(Vec::from(buf))? == *data[pos as usize], //String::from(data[pos as usize]),
         "reader.read() failed to read the correct data."
     );
-    reader.read_last_block(&mut buf)?;
-    assert!(
-        String::from_utf8(Vec::from(buf))? == String::from(data[data.len() - 1]),
-        "reader.read() failed to read the last block."
-    );
+
     if path.exists() {
         std::fs::remove_file(path)?;
     }
