@@ -2,15 +2,19 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
 
+
 pub mod digest;
 pub mod error;
 pub mod io;
 pub mod merkle;
 pub mod sha2;
 pub mod sha3;
+pub mod min_heap;
 use error::Result;
 use merkle::Proof;
 use std::ops::Range;
+use digest::Digest;
+
 
 pub trait OneWayHasher<const MDLEN: usize>: std::io::Write
 where
@@ -22,6 +26,7 @@ where
     fn finish(&mut self, digest: &mut [u8; MDLEN]);
 }
 
+
 pub trait FinishXOF
 where
     Self: Sized,
@@ -29,20 +34,37 @@ where
     fn finish_xof(&mut self, digest: &mut [u8]);
 }
 
-pub trait Block
+
+pub trait Block<const DIGEST_SIZE: usize, const BLOCK_SIZE: usize, H>
 where
-    Self: Sized,
+    Self: Default + Sized,
+    H: OneWayHasher<DIGEST_SIZE>,
 {
+    /// Calculate self's hash and write it to digest. Returns Ok(())
+    /// on success or Err(error::Error) on failure.
+    fn calc_hash(&self, digest: &mut [u8]) -> error::Result<()>;
+    
+    /// Return the previous block's hash digest as a slice
+    fn prev_hash<'a>(&self) -> error::Result<&'a [u8]>;
+
     /// Transmutate an object into an array of bytes.
-    fn serialize(&self, buf: &mut [u8]) -> error::Result<()>;
+    fn encode(&self, buf: &mut [u8]) -> error::Result<()>;
 
     /// Transmutate an array of bytes into a new object.
-    fn deserialize(buf: &[u8]) -> error::Result<Self>;
+    fn decocde(buf: &[u8]) -> error::Result<Self>;
+
+    /// Returns the size of an encoded block in bytes.
+    fn size() -> usize { BLOCK_SIZE }
+
+    /// Returns in the size of a digest in bytes.
+    fn digest_size() -> usize { DIGEST_SIZE }
 }
 
-pub trait DataLayer<const DIGEST_SIZE: usize, const BLOCK_SIZE: usize, T, H>
+
+pub trait BlockChainDB<const DIGEST_SIZE: usize, const BLOCK_SIZE: usize, H, T>
 where
-    T: Block,
+    Self: Default + Sized,
+    T: Block<DIGEST_SIZE, BLOCK_SIZE, H>,
     H: OneWayHasher<DIGEST_SIZE>,
 {
     /// Returns the current block count.
@@ -55,7 +77,7 @@ where
     fn append(&self) -> Result<()>;
 
     /// Returns the state (hash digest of the last block) of the blockchain.
-    fn state(&self) -> Result<()>;
+    fn state(&self) -> Result<Digest<DIGEST_SIZE>>;
 
     /// Returns a merkle proof for the record at ```index`` in ```block```.
     fn prove(&self, block: usize, index: usize) -> Result<Proof<DIGEST_SIZE>>;
