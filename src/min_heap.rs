@@ -97,32 +97,22 @@ where
     }
 
     fn heapify(&mut self, i: usize) {
-        let l: usize = Self::left(i);
-        let r: usize = Self::right(i);
+        let left: usize = (i * 2) + 1;
+        let right: usize = (i * 2) + 2;
 
-        let mut smallest: usize = if l < self.heap.len() && self.heap[l] < self.heap[i] {
-            l
+        let mut smallest: usize = if left < self.heap.len() && self.heap[left] < self.heap[i] {
+            left
         } else {
             i
         };
 
-        if r < self.heap.len() && self.heap[r] < self.heap[smallest] {
-            smallest = r;
+        if right < self.heap.len() && self.heap[right] < self.heap[smallest] {
+            smallest = right;
         }
 
         if smallest != i {
             self.heap.swap(i, smallest);
             self.heapify(smallest);
         }
-    }
-
-    #[inline]
-    fn left(index: usize) -> usize {
-        (index * 2) + 1
-    }
-
-    #[inline]
-    fn right(index: usize) -> usize {
-        (index * 2) + 2
     }
 }
