@@ -61,7 +61,7 @@ where
     heap: Vec<T>, // The buffer of nodes
 }
 
-impl<T> Default for MinHeap<T> where T: Ord {
+impl<T> Default for MinHeap<T> where T: Ord + Clone {
     fn default() -> Self {
         Self { heap: Vec::new() }
     }
@@ -69,7 +69,7 @@ impl<T> Default for MinHeap<T> where T: Ord {
 
 impl<T> MinHeap<T>
 where
-    T: Ord,
+    T: Ord + Clone,
 {
     pub fn new<I>(iter: I) -> Self where I: Iterator<Item = T> + Copy {
         let mut heap = Vec::from_iter(iter);
