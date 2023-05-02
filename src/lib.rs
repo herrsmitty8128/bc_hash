@@ -9,6 +9,7 @@ pub mod io;
 pub mod merkle;
 pub mod sha2;
 pub mod sha3;
+pub mod cache;
 use digest::Digest;
 use error::Result;
 use merkle::Proof;

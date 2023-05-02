@@ -1,7 +1,7 @@
 use std::cmp::{Ordering, PartialOrd};
-use std::fmt::Display;
 use std::time::Instant;
 
+#[derive(Debug, Clone)]
 pub struct TimestampedItem<T>
 where
     T: Default + Clone,
@@ -82,39 +82,23 @@ where
 #[derive(Debug, Clone)]
 pub struct MinHeap<T>
 where
-    T: Ord + Clone + Display,
+    T: Ord + Clone,
 {
     heap: Vec<T>,
 }
 
 impl<T> Default for MinHeap<T>
 where
-    T: Ord + Clone + Display,
+    T: Ord + Clone,
 {
     fn default() -> Self {
         Self { heap: Vec::new() }
     }
 }
 
-impl<T> Display for MinHeap<T>
-where
-    T: Ord + Clone + Display,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("[")?;
-        if !self.heap.is_empty() {
-            for i in 0..self.heap.len() - 1 {
-                f.write_fmt(format_args!("{}, ", &self.heap[i]))?;
-            }
-            f.write_fmt(format_args!("{}]", &self.heap.last().unwrap()))?;
-        }
-        Ok(())
-    }
-}
-
 impl<T> MinHeap<T>
 where
-    T: Ord + Clone + Display,
+    T: Ord + Clone,
 {
     pub fn new<I>(iter: I) -> Self
     where
