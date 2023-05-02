@@ -2,19 +2,17 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
 
-
 pub mod digest;
 pub mod error;
+pub mod heap;
 pub mod io;
 pub mod merkle;
 pub mod sha2;
 pub mod sha3;
-pub mod min_heap;
+use digest::Digest;
 use error::Result;
 use merkle::Proof;
 use std::ops::Range;
-use digest::Digest;
-
 
 pub trait OneWayHasher<const MDLEN: usize>: std::io::Write
 where
@@ -26,14 +24,12 @@ where
     fn finish(&mut self, digest: &mut [u8; MDLEN]);
 }
 
-
 pub trait FinishXOF
 where
     Self: Sized,
 {
     fn finish_xof(&mut self, digest: &mut [u8]);
 }
-
 
 pub trait Block<const DIGEST_SIZE: usize, const BLOCK_SIZE: usize, H>
 where
@@ -43,7 +39,7 @@ where
     /// Calculate self's hash and write it to digest. Returns Ok(())
     /// on success or Err(error::Error) on failure.
     fn calc_hash(&self, digest: &mut [u8]) -> error::Result<()>;
-    
+
     /// Return the previous block's hash digest as a slice
     fn prev_hash<'a>(&self) -> error::Result<&'a [u8]>;
 
@@ -54,12 +50,15 @@ where
     fn decocde(buf: &[u8]) -> error::Result<Self>;
 
     /// Returns the size of an encoded block in bytes.
-    fn size() -> usize { BLOCK_SIZE }
+    fn size() -> usize {
+        BLOCK_SIZE
+    }
 
     /// Returns in the size of a digest in bytes.
-    fn digest_size() -> usize { DIGEST_SIZE }
+    fn digest_size() -> usize {
+        DIGEST_SIZE
+    }
 }
-
 
 pub trait BlockChainDB<const DIGEST_SIZE: usize, const BLOCK_SIZE: usize, H, T>
 where

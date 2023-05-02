@@ -10,7 +10,6 @@ use std::{
 
 pub const MAX_BLOCK_SIZE: usize = u16::MAX as usize;
 
-
 /// A struct that wraps a ```io::Bufreader```
 #[derive(Debug)]
 pub struct BlockReader<const BLOCK_SIZE: usize> {
@@ -170,7 +169,6 @@ impl<const BLOCK_SIZE: usize> Write for BlockWriter<BLOCK_SIZE> {
     }
 }
 
-
 #[derive(Debug)]
 pub struct BlockStream<const BLOCK_SIZE: usize> {
     inner: File,
@@ -274,7 +272,6 @@ impl<const BLOCK_SIZE: usize> Seek for BlockStream<BLOCK_SIZE> {
     }
 }
 
-
 impl<const BLOCK_SIZE: usize> BlockStream<BLOCK_SIZE> {
     pub fn new(path: &Path) -> Result<Self> {
         if BLOCK_SIZE == 0 || BLOCK_SIZE > MAX_BLOCK_SIZE {
@@ -312,5 +309,4 @@ impl<const BLOCK_SIZE: usize> BlockStream<BLOCK_SIZE> {
     pub fn size(&self) -> std::io::Result<u64> {
         Ok(self.inner.metadata()?.len())
     }
-
 }

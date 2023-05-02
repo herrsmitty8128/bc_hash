@@ -2,10 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
 
-use bc_hash::{
-    io::BlockStream,
-    OneWayHasher,
-};
+use bc_hash::{heap::MinHeap, io::BlockStream, OneWayHasher};
 use sha2::Digest;
 use sha3::{
     digest::{ExtendableOutput, Update, XofReader},
@@ -173,7 +170,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // establish the file path and delete it if it already exists
     // test crate::io::BlockReader and crate::io::BlockWriter
     let path: &Path = Path::new("./test.blocks");
-    
+
     if path.exists() {
         std::fs::remove_file(path)?;
     }
@@ -227,6 +224,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     if path.exists() {
         std::fs::remove_file(path)?;
     }
+
+    // Test the heap
+
+    let arr: [usize; 9] = [5, 3, 13, 5, 6, 2, 1, 9, 8];
+    let mut heap: MinHeap<usize> = MinHeap::new(arr.into_iter());
+    println!("{}", heap);
+    heap.insert(0);
+    println!("{}", heap);
+    heap.extract();
+    println!("{}", heap);
+    heap.extract();
+    println!("{}", heap);
+    heap.extract();
+    println!("{}", heap);
+    heap.extract();
+    println!("{}", heap);
 
     Ok(())
 }
