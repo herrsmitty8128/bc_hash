@@ -165,6 +165,8 @@ where
             if self.heap[c] < self.heap[p] {
                 // if the child is smaller than the parent
                 self.heap.swap(c, p); // then swap them
+            } else {
+                break;
             }
             c = p;
         }

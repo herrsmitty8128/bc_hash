@@ -234,7 +234,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("{}", heap);
     heap.extract();
     println!("{}", heap);
+    heap.insert(7);
+    println!("{}", heap);
     heap.extract();
+    println!("{}", heap);
+    heap.extract();
+    println!("{}", heap);
+    heap.insert(10);
     println!("{}", heap);
     heap.extract();
     println!("{}", heap);
