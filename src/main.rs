@@ -229,23 +229,23 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let arr: [usize; 9] = [5, 3, 13, 5, 6, 2, 1, 9, 8];
     let mut heap: MinHeap<usize> = MinHeap::new(arr.into_iter());
-    println!("{}", heap);
+    println!("{:?}", heap);
     heap.insert(0);
-    println!("{}", heap);
+    println!("{:?}", heap);
     heap.extract();
-    println!("{}", heap);
+    println!("{:?}", heap);
     heap.insert(7);
-    println!("{}", heap);
+    println!("{:?}", heap);
     heap.extract();
-    println!("{}", heap);
+    println!("{:?}", heap);
     heap.extract();
-    println!("{}", heap);
+    println!("{:?}", heap);
     heap.insert(10);
-    println!("{}", heap);
+    println!("{:?}", heap);
     heap.extract();
-    println!("{}", heap);
+    println!("{:?}", heap);
     heap.extract();
-    println!("{}", heap);
+    println!("{:?}", heap);
 
     Ok(())
 }
