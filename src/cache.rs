@@ -96,7 +96,7 @@ impl<const BLOCK_SIZE: usize> Cache<BLOCK_SIZE> {
         self.heap.clear();
     }
 
-    /* private function to compare two keys on the min heap */
+    /// Private function to compare two keys on the min heap.
     fn compare(&self, a: usize, b: usize) -> Option<Ordering> {
         Some(self.map.get(&(a as u64))?.cmp(self.map.get(&(b as u64))?))
     }
@@ -112,6 +112,7 @@ impl<const BLOCK_SIZE: usize> Cache<BLOCK_SIZE> {
         }
     }
 
+    /// Private function used to remove the oldest block from the cache.
     fn extract(&mut self) -> Option<()> {
         if self.heap.is_empty() {
             None
@@ -140,13 +141,10 @@ impl<const BLOCK_SIZE: usize> Cache<BLOCK_SIZE> {
         }
     }
 
-    // need to cover the option on line 158
-
     pub fn insert(&mut self, block_num: u64, block: [u8; BLOCK_SIZE]) -> Option<()> {
         match self.map.get_mut(&block_num) {
             Some(item) => {
-                let timestamp: Instant = Instant::now();
-                item.set_timestamp(timestamp);
+                item.set_timestamp(Instant::now());
                 None
             }
             None => {
@@ -170,36 +168,4 @@ impl<const BLOCK_SIZE: usize> Cache<BLOCK_SIZE> {
             },
         }
     }
-
-    /*
-    pub fn put(&mut self, k: K, v: V) -> error::Result<()> {
-        if !self.map.contains_key(&k) {
-            if self.map.len() >= self.capacity {
-                if let Some(item) = self.heap.extract() {
-                    self.map.remove(&item.item());
-                }
-            }
-            let item: TimestampedItem<K> = TimestampedItem::new(k);
-            self.map.insert(k, item);
-            self.heap.insert(&item);
-            Ok(())
-        } else {
-            Err(error::Error::new(
-                error::ErrorKind::Other,
-                "Key already exists in the cache",
-            ))
-        }
-    }
-
-    pub fn get(&self, key: &K) -> Option<&V> {
-        match self.map.get(key) {
-            Some(item) => {
-                let timestamp: Instant = Instant::now();
-                item.set_timestamp(timestamp);
-                Some(item)
-            }
-            None => None,
-        }
-    }
-    */
 }
