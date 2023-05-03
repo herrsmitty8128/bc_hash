@@ -56,15 +56,19 @@ where
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
+
     fn ge(&self, other: &Self) -> bool {
         self.timestamp >= other.timestamp
     }
+
     fn gt(&self, other: &Self) -> bool {
         self.timestamp > other.timestamp
     }
+
     fn lt(&self, other: &Self) -> bool {
         self.timestamp < other.timestamp
     }
+
     fn le(&self, other: &Self) -> bool {
         self.timestamp <= other.timestamp
     }
@@ -113,6 +117,14 @@ where
         self.heap.len()
     }
 
+    pub fn clear(&mut self) {
+        self.heap.truncate(0)
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
+        self.heap.iter()
+    }
+
     pub fn extract(&mut self) -> Option<T> {
         if self.heap.is_empty() {
             None
@@ -142,8 +154,8 @@ where
     }
 
     pub fn insert(&mut self, item: T) {
+        let mut c: usize = self.heap.len(); // get the index of the new child node
         self.heap.push(item); // push the new item on the heap
-        let mut c: usize = self.heap.len() - 1; // calculate the index of the new child node
         while c > 0 {
             let p: usize = (c - 1) >> 1; // calculate the index of the parent node
             if self.heap[c] < self.heap[p] {

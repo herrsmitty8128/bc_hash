@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
 
+pub mod cache;
 pub mod digest;
 pub mod error;
 pub mod heap;
@@ -9,7 +10,6 @@ pub mod io;
 pub mod merkle;
 pub mod sha2;
 pub mod sha3;
-pub mod cache;
 use digest::Digest;
 use error::Result;
 use merkle::Proof;
