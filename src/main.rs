@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
 
-use bc_hash::{heap::MinHeap, io::BlockStream, OneWayHasher};
+use bc_hash::{io::BlockStream, OneWayHasher, cache::Cache};
 use sha2::Digest;
 use sha3::{
     digest::{ExtendableOutput, Update, XofReader},
@@ -12,6 +12,8 @@ use std::{
     error::Error,
     io::{ErrorKind, Read, Seek, SeekFrom, Write},
     path::Path,
+    thread::{sleep},
+    time::Duration,
 };
 
 macro_rules! cmp_fixed_len_digests {
@@ -225,27 +227,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         std::fs::remove_file(path)?;
     }
 
-    // Test the heap
+    // Test the cache
 
-    let arr: [usize; 9] = [5, 3, 13, 5, 6, 2, 1, 9, 8];
-    let mut heap: MinHeap<usize> = MinHeap::new(arr.into_iter());
-    println!("{:?}", heap);
-    heap.insert(0);
-    println!("{:?}", heap);
-    heap.extract();
-    println!("{:?}", heap);
-    heap.insert(7);
-    println!("{:?}", heap);
-    heap.extract();
-    println!("{:?}", heap);
-    heap.extract();
-    println!("{:?}", heap);
-    heap.insert(10);
-    println!("{:?}", heap);
-    heap.extract();
-    println!("{:?}", heap);
-    heap.extract();
-    println!("{:?}", heap);
+    let mut c: Cache<3> = Cache::new(4);
+    let block: [u8; 3] = [0; 3];
+    for block_num in 0..5 {
+        c.put(block_num, block);
+        sleep(Duration::from_millis(100));
+        println!("#####");
+        for (num, b) in c.iter() {
+            println!("{}: {:?}", num, b.item());
+        }
+    }
+
 
     Ok(())
 }
