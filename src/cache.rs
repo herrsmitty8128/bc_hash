@@ -3,62 +3,30 @@
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
 
 use std::cmp::{Ordering, PartialOrd};
-use std::collections::hash_map::Iter;
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map};
 use std::time::Instant;
 
 #[derive(Debug, Clone)]
-pub struct TimestampedItem<T>
-where
-    T: Ord,
-{
+pub struct MapItem<const BLOCK_SIZE: usize> {
+    heap_idx: usize, // the index on the heap
+    block: [u8; BLOCK_SIZE],
+}
+
+#[derive(Debug, Clone)]
+struct HeapItem {
     timestamp: Instant, // the last time the block was requested
-    item: T,
+    block_num: u64,
 }
 
-impl<T> TimestampedItem<T>
-where
-    T: Ord,
-{
-    pub fn new(item: T) -> Self {
-        Self {
-            timestamp: Instant::now(),
-            item,
-        }
-    }
-
-    pub fn set_timestamp(&mut self, timestamp: Instant) {
-        self.timestamp = timestamp;
-    }
-
-    pub fn timestamp(&self) -> &Instant {
-        &self.timestamp
-    }
-
-    pub fn set_item(&mut self, item: T) {
-        self.item = item;
-    }
-
-    pub fn item(&self) -> &T {
-        &self.item
-    }
-}
-
-impl<T> PartialEq for TimestampedItem<T>
-where
-    T: Ord,
-{
+impl PartialEq for HeapItem {
     fn eq(&self, other: &Self) -> bool {
         self.timestamp == other.timestamp
     }
 }
 
-impl<T> Eq for TimestampedItem<T> where T: Ord {}
+impl Eq for HeapItem {}
 
-impl<T> PartialOrd for TimestampedItem<T>
-where
-    T: Ord,
-{
+impl PartialOrd for HeapItem {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -80,10 +48,7 @@ where
     }
 }
 
-impl<T> Ord for TimestampedItem<T>
-where
-    T: Ord,
-{
+impl Ord for HeapItem {
     fn cmp(&self, other: &Self) -> Ordering {
         self.timestamp.cmp(&other.timestamp)
     }
@@ -91,8 +56,8 @@ where
 
 #[derive(Debug, Clone)]
 pub struct Cache<const BLOCK_SIZE: usize> {
-    heap: Vec<u64>,
-    map: HashMap<u64, TimestampedItem<[u8; BLOCK_SIZE]>>,
+    heap: Vec<HeapItem>,
+    map: HashMap<u64, MapItem<BLOCK_SIZE>>,
     capacity: usize,
 }
 
@@ -105,12 +70,12 @@ impl<const BLOCK_SIZE: usize> Cache<BLOCK_SIZE> {
         }
     }
 
-    pub fn count(&self) -> usize {
-        self.map.len()
+    pub fn iter(&self) -> hash_map::Iter<'_, u64, MapItem<BLOCK_SIZE>> {
+        self.map.iter()
     }
 
-    pub fn iter(&self) -> Iter<'_, u64, TimestampedItem<[u8; BLOCK_SIZE]>> {
-        self.map.iter()
+    pub fn count(&self) -> usize {
+        self.map.len()
     }
 
     pub fn clear(&mut self) {
@@ -118,35 +83,28 @@ impl<const BLOCK_SIZE: usize> Cache<BLOCK_SIZE> {
         self.heap.clear();
     }
 
-    /// Private function to compare two keys on the min heap.
-    fn compare(&self, a: usize, b: usize) -> Option<Ordering> {
-        let b1: u64 = self.heap[a];
-        let b2: u64 = self.heap[b];
-        Some(self.map.get(&b1)?.cmp(self.map.get(&b2)?))
-    }
-
-    /// Private function to update the heap after removal.
-    /// Usually starts from index 0 in the heap array
-    fn sort_heap_down(&mut self, mut p: usize) -> Option<()> {
+    /// Private function to sort the heap by going down the tree starting from index ```p```.
+    fn sort_down(&mut self, mut p: usize) -> Option<()> {
         if p < self.heap.len() {
             let length: usize = self.heap.len();
             loop {
                 let left: usize = (p * 2) + 1;
                 let right: usize = left + 1;
-                let mut smallest: usize =
-                    if left < length && self.compare(left, p)? == Ordering::Less {
-                        left
-                    } else {
-                        p
-                    };
-                if right < length && self.compare(right, smallest)? == Ordering::Less {
-                    smallest = right;
+                let mut s: usize = if left < length && self.heap[left] < self.heap[p] {
+                    left
+                } else {
+                    p
+                };
+                if right < length && self.heap[right] < self.heap[s] {
+                    s = right;
                 }
-                if smallest == p {
+                if s == p {
                     break;
                 }
-                self.heap.swap(p, smallest);
-                p = smallest;
+                self.map.get_mut(&self.heap[p].block_num).unwrap().heap_idx = s;
+                self.map.get_mut(&self.heap[s].block_num).unwrap().heap_idx = p;
+                self.heap.swap(p, s);
+                p = s;
             }
             Some(())
         } else {
@@ -154,15 +112,15 @@ impl<const BLOCK_SIZE: usize> Cache<BLOCK_SIZE> {
         }
     }
 
-    /// Private function to update the heap after insert
-    /// Usually starts from the last index in the heap array
-    fn sort_heap_up(&mut self, mut c: usize) -> Option<()> {
+    /// Private function to sort the heap by going up the tree starting from index ```c```.
+    fn sort_up(&mut self, mut c: usize) -> Option<()> {
         if c < self.heap.len() {
             while c > 0 {
                 let p: usize = (c - 1) >> 1; // calculate the index of the parent node
-                if self.compare(c, p)? == Ordering::Less {
-                    // if the child is smaller than the parent
-                    self.heap.swap(c, p); // then swap them
+                if self.heap[c] < self.heap[p] {
+                    self.map.get_mut(&self.heap[c].block_num).unwrap().heap_idx = p;
+                    self.map.get_mut(&self.heap[p].block_num).unwrap().heap_idx = c;
+                    self.heap.swap(c, p); // if the child is smaller than the parent then swap them
                 } else {
                     break;
                 }
@@ -177,36 +135,34 @@ impl<const BLOCK_SIZE: usize> Cache<BLOCK_SIZE> {
     pub fn get(&mut self, block_num: u64) -> Option<&[u8; BLOCK_SIZE]> {
         match self.map.get_mut(&block_num) {
             Some(item) => {
-                let timestamp: Instant = Instant::now();
-                item.set_timestamp(timestamp);
-                Some(item.item())
+                self.heap[item.heap_idx].timestamp = Instant::now();
+                Some(&item.block)
             }
             None => None,
         }
     }
 
-    /// Deletes the oldest item from the cache.
-    pub fn del(&mut self) -> Option<()> {
-        if self.map.is_empty() {
-            None
-        } else {
-            let index: usize = 0;
-            self.map.remove(&self.heap.swap_remove(index))?; //.item();
-            self.sort_heap_down(index)
-        }
-    }
-
     #[allow(clippy::map_entry)]
-    pub fn put(&mut self, block_num: u64, block: [u8; BLOCK_SIZE]) -> Option<()> {
+    pub fn put(&mut self, block_num: u64, block: &[u8; BLOCK_SIZE]) -> Option<()> {
         if self.map.contains_key(&block_num) {
             None
         } else {
-            let index: usize = self.heap.len(); // get the index of the new child node
-            self.heap.push(block_num); // push the new item on the heap
-            self.map.insert(block_num, TimestampedItem::new(block));
-            self.sort_heap_up(index)?;
+            let heap_idx: usize = self.heap.len(); // get the index of the new child node
+            self.heap.push(HeapItem {
+                timestamp: Instant::now(),
+                block_num,
+            });
+            self.map.insert(
+                block_num,
+                MapItem {
+                    heap_idx,
+                    block: *block,
+                },
+            );
+            self.sort_up(heap_idx)?;
             if self.map.len() > self.capacity {
-                self.del()
+                self.map.remove(&self.heap.swap_remove(0).block_num)?;
+                self.sort_down(0)
             } else {
                 None
             }
