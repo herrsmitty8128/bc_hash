@@ -2,88 +2,129 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
 
-use std::cmp::{Ordering, PartialOrd};
-use std::time::Instant;
+use std::cmp::{Ord, Ordering};
 
-#[derive(Debug, Clone)]
-pub struct TimestampedItem<T>
+/// Function to update the heap after removal.
+/// Usually starts from index 0 in the heap array
+pub fn sort_down<T>(heap: &mut Vec<T>, mut p: usize, order: Ordering)
 where
-    T: Default + Clone,
+    T: Ord,
 {
-    timestamp: Instant, // the last time the block was requested
-    item: T,
+    let length: usize = heap.len();
+    if p < length && order != Ordering::Equal {
+        loop {
+            let left: usize = (p * 2) + 1;
+            let right: usize = left + 1;
+            let mut x: usize = if left < length && heap[left].cmp(&heap[p]) == order {
+                left
+            } else {
+                p
+            };
+            if right < length && heap[right].cmp(&heap[x]) == order {
+                x = right;
+            }
+            if x == p {
+                break;
+            }
+            heap.swap(p, x);
+            p = x;
+        }
+    };
 }
 
-impl<T> TimestampedItem<T>
+/// Function to update the heap after insert
+/// Usually starts from the last index in the heap array
+pub fn sort_up<T>(heap: &mut Vec<T>, mut c: usize, order: Ordering)
 where
-    T: Default + Clone,
+    T: Ord,
 {
-    pub fn new(item: T) -> Self {
-        Self {
-            timestamp: Instant::now(),
-            item,
+    if c < heap.len() && order != Ordering::Equal {
+        while c > 0 {
+            let p: usize = (c - 1) >> 1; // calculate the index of the parent node
+            if heap[c].cmp(&heap[p]) == order {
+                heap.swap(c, p); // if the child is smaller than the parent, then swap them
+            } else {
+                break;
+            }
+            c = p;
+        }
+    };
+}
+
+/// Function to insert an element into a heap.
+pub fn insert<T>(heap: &mut Vec<T>, element: T, order: Ordering)
+where
+    T: Ord,
+{
+    let c: usize = heap.len();
+    heap.push(element);
+    sort_up(heap, c, order);
+}
+
+/// Function to remove an item from the top of the heap.
+pub fn extract<T>(heap: &mut Vec<T>, order: Ordering) -> Option<T>
+where
+    T: Ord,
+{
+    if heap.len() > 0 {
+        let removed: T = heap.swap_remove(0);
+        sort_down(heap, 0, order);
+        Some(removed)
+    } else {
+        None
+    }
+}
+
+/// Clears the vector, removing all values.
+/// Note that this method has no effect on the allocated capacity of the heap.
+pub fn clear<T>(heap: &mut Vec<T>)
+where
+    T: Ord,
+{
+    heap.clear()
+}
+
+/// Searches for an element on the heap and returns a reference to it.
+/// Performs a linear search for ```element``` in O(n) time. If the element
+/// is found, then it will return its index. Otherwise, it will return None.
+pub fn find<T>(heap: &mut Vec<T>, element: &T) -> Option<usize>
+where
+    T: Ord + Eq,
+{
+    for i in 0..heap.len() {
+        if heap[i] == *element {
+            return Some(i);
         }
     }
+    None
+}
 
-    pub fn set_timestamp(&mut self, timestamp: Instant) {
-        self.timestamp = timestamp;
-    }
-
-    pub fn timestamp(&self) -> &Instant {
-        &self.timestamp
-    }
-
-    pub fn set_item(&mut self, item: T) {
-        self.item = item;
-    }
-
-    pub fn item(&self) -> &T {
-        &self.item
+/// Updates a value on the heap.
+pub fn update<T>(heap: &mut Vec<T>, element: &T, replace_with: T, order: Ordering) -> Option<()>
+where
+    T: Ord + Copy,
+{
+    if let Some(i) = find(heap, element) {
+        heap[i] = replace_with;
+        if replace_with.cmp(element) == order {
+            sort_up(heap, i, order);
+        } else {
+            sort_down(heap, i, order);
+        }
+        Some(())
+    } else {
+        None
     }
 }
 
-impl<T> PartialEq for TimestampedItem<T>
-where
-    T: Default + Clone,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.timestamp == other.timestamp
-    }
-}
-
-impl<T> Eq for TimestampedItem<T> where T: Default + Clone {}
-
-impl<T> PartialOrd for TimestampedItem<T>
-where
-    T: Default + Clone,
-{
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-
-    fn ge(&self, other: &Self) -> bool {
-        self.timestamp >= other.timestamp
-    }
-
-    fn gt(&self, other: &Self) -> bool {
-        self.timestamp > other.timestamp
-    }
-
-    fn lt(&self, other: &Self) -> bool {
-        self.timestamp < other.timestamp
-    }
-
-    fn le(&self, other: &Self) -> bool {
-        self.timestamp <= other.timestamp
-    }
-}
-
-impl<T> Ord for TimestampedItem<T>
-where
-    T: Default + Clone,
-{
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.timestamp.cmp(&other.timestamp)
+/// Removes an element from the heap.
+pub fn remove<T>(heap: &mut Vec<T>, index: usize, order: Ordering) -> Option<T> where T: Ord {
+    if index < heap.len() {
+        let removed: T = heap.swap_remove(index);
+        sort_down(heap, index, order);
+        Some(removed)
+    } else {
+        None
     }
 }
 
@@ -133,42 +174,15 @@ where
         if self.heap.is_empty() {
             None
         } else {
-            let mut p: usize = 0;
-            let removed_item: T = self.heap.swap_remove(p);
-            let length: usize = self.heap.len();
-            loop {
-                let left: usize = (p * 2) + 1;
-                let right: usize = left + 1;
-                let mut smallest: usize = if left < length && self.heap[left] < self.heap[p] {
-                    left
-                } else {
-                    p
-                };
-                if right < length && self.heap[right] < self.heap[smallest] {
-                    smallest = right;
-                }
-                if smallest == p {
-                    break;
-                }
-                self.heap.swap(p, smallest);
-                p = smallest;
-            }
+            let removed_item: T = self.heap.swap_remove(0);
+            sort_down(&mut self.heap, 0, Ordering::Less);
             Some(removed_item)
         }
     }
 
     pub fn insert(&mut self, item: T) {
-        let mut c: usize = self.heap.len(); // get the index of the new child node
+        let c: usize = self.heap.len(); // get the index of the new child node
         self.heap.push(item); // push the new item on the heap
-        while c > 0 {
-            let p: usize = (c - 1) >> 1; // calculate the index of the parent node
-            if self.heap[c] < self.heap[p] {
-                // if the child is smaller than the parent
-                self.heap.swap(c, p); // then swap them
-            } else {
-                break;
-            }
-            c = p;
-        }
+        sort_up(&mut self.heap, c, Ordering::Less);
     }
 }

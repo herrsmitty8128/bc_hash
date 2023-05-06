@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
 
-use bc_hash::{io::BlockStream, OneWayHasher, cache::Cache};
+use bc_hash::{cache::Cache, io::BlockStream, OneWayHasher};
 use sha2::Digest;
 use sha3::{
     digest::{ExtendableOutput, Update, XofReader},
@@ -12,7 +12,7 @@ use std::{
     error::Error,
     io::{ErrorKind, Read, Seek, SeekFrom, Write},
     path::Path,
-    thread::{sleep},
+    thread::sleep,
     time::Duration,
 };
 
@@ -239,7 +239,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("{}: {:?}", num, b.item());
         }
     }
-
 
     Ok(())
 }
