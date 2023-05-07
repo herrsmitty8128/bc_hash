@@ -5,7 +5,6 @@
 pub mod cache;
 pub mod digest;
 pub mod error;
-pub mod heap;
 pub mod io;
 pub mod merkle;
 pub mod sha2;
@@ -83,5 +82,5 @@ where
     fn prove(&self, block: usize, index: usize) -> Result<Proof<DIGEST_SIZE>>;
 
     /// Returns a block.
-    fn get(&self);
+    fn get(&self, block_num: u64) -> &[u8; BLOCK_SIZE];
 }

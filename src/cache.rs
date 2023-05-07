@@ -3,7 +3,7 @@
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
 
 use std::cmp::{Ordering, PartialOrd};
-use std::collections::{HashMap, hash_map};
+use std::collections::{hash_map, HashMap};
 use std::time::Instant;
 
 #[derive(Debug, Clone)]
