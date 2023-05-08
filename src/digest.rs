@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
 
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
@@ -79,6 +79,19 @@ impl<const S: usize> IndexMut<usize> for Digest<S> {
     }
 }
 
+impl<const S: usize> TryFrom<&[u8]> for Digest<S> {
+    type Error = Error;
+    fn try_from(src: &[u8]) -> Result<Self, Self::Error> {
+        if src.len() == S {
+            let mut digest: Digest<S> = Digest::default();
+            digest.0.clone_from_slice(src);
+            Ok(digest)
+        } else {
+            Err(Error::new(ErrorKind::InvalidSliceLength, &format!("Slice lenght is not equal to digest length of {}.", S)))
+        }
+    }
+}
+
 impl<const S: usize> From<[u8; S]> for Digest<S> {
     fn from(byte_array: [u8; S]) -> Self {
         Self(byte_array)
@@ -97,8 +110,8 @@ impl<const S: usize> FromStr for Digest<S> {
             src = s
         }
         match src.len().cmp(&(S * 2)) {
-            Ordering::Greater => Err(Error::StringTooLong),
-            Ordering::Less => Err(Error::StringTooShort),
+            Ordering::Greater => Err(Error::new(ErrorKind::StringTooLong, "")),
+            Ordering::Less => Err(Error::new(ErrorKind::StringTooShort, "")),
             Ordering::Equal => {
                 let mut digest: Digest<S> = Digest::new();
                 for (i, offset) in (0..(S * 2)).step_by(2).enumerate() {
@@ -122,8 +135,8 @@ impl<const S: usize> Digest<S> {
 
     pub fn from_bytes(bytes: &mut [u8]) -> std::result::Result<Digest<S>, Error> {
         match bytes.len().cmp(&S) {
-            Ordering::Greater => Err(Error::SliceTooLong),
-            Ordering::Less => Err(Error::SliceTooShort),
+            Ordering::Greater => Err(Error::new(ErrorKind::SliceTooLong, &format!("The byte slice is longer than the digest length of {}", S))),
+            Ordering::Less => Err(Error::new(ErrorKind::SliceTooShort, &format!("The byte slice is shorter than the digest length of {}", S))),
             Ordering::Equal => {
                 let mut digest: Digest<S> = Digest::new();
                 digest.0.clone_from_slice(bytes);

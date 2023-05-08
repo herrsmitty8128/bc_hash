@@ -3,6 +3,7 @@
 // file LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
 
 use crate::OneWayHasher;
+use crate::error::{Error, ErrorKind, Result};
 use std::marker::PhantomData;
 
 /// https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf
@@ -337,8 +338,14 @@ impl OneWayHasher<28> for Sha224 {
     }
 
     #[inline]
-    fn finish(&mut self, digest: &mut [u8; 28]) {
-        wrap_up!(self, u64, digest, 28, 64);
+    fn finish(&mut self, digest: &mut [u8]) -> Result<()> {
+    //fn finish(&mut self, digest: &mut [u8; 28]) {
+        if digest.len() != 28 {
+            Err(Error::new(ErrorKind::InvalidSliceLength, "Slice length not equal to digest length of 28."))
+        } else {
+            wrap_up!(self, u64, digest, 28, 64);
+            Ok(())
+        }
     }
 }
 
@@ -389,8 +396,14 @@ impl OneWayHasher<32> for Sha256 {
     }
 
     #[inline]
-    fn finish(&mut self, digest: &mut [u8; 32]) {
-        wrap_up!(self, u64, digest, 32, 64);
+    fn finish(&mut self, digest: &mut [u8]) -> Result<()> {
+    //fn finish(&mut self, digest: &mut [u8; 32]) {
+        if digest.len() != 32 {
+            Err(Error::new(ErrorKind::InvalidSliceLength, "Slice lenght is not equal to digest length of 32."))
+        } else {
+            wrap_up!(self, u64, digest, 32, 64);
+            Ok(())
+        }
     }
 }
 
@@ -441,8 +454,14 @@ impl OneWayHasher<48> for Sha384 {
     }
 
     #[inline]
-    fn finish(&mut self, digest: &mut [u8; 48]) {
-        wrap_up!(self, u128, digest, 48, 128);
+    fn finish(&mut self, digest: &mut [u8]) -> Result<()> {
+    //fn finish(&mut self, digest: &mut [u8; 48]) {
+        if digest.len() != 48 {
+            Err(Error::new(ErrorKind::InvalidSliceLength, "Slice lenght is not equal to digest length of 48."))
+        } else {
+            wrap_up!(self, u128, digest, 48, 128);
+            Ok(())
+        }
     }
 }
 
@@ -493,8 +512,14 @@ impl OneWayHasher<64> for Sha512 {
     }
 
     #[inline]
-    fn finish(&mut self, digest: &mut [u8; 64]) {
-        wrap_up!(self, u128, digest, 64, 128);
+    fn finish(&mut self, digest: &mut [u8]) -> Result<()> {
+    //fn finish(&mut self, digest: &mut [u8; 64]) {
+        if digest.len() != 64 {
+            Err(Error::new(ErrorKind::InvalidSliceLength, "Slice length not equal to digest length of 64."))
+        } else {
+            wrap_up!(self, u128, digest, 64, 128);
+            Ok(())
+        }
     }
 }
 
@@ -545,10 +570,16 @@ impl OneWayHasher<28> for Sha512_224 {
     }
 
     #[inline]
-    fn finish(&mut self, digest: &mut [u8; 28]) {
-        wrap_up!(self, u128, digest, 28, 128);
-        // fill in the last four bytes
-        digest[24..28].clone_from_slice(&self.st[3].to_be_bytes()[0..4]);
+    fn finish(&mut self, digest: &mut [u8]) -> Result<()> {
+    //fn finish(&mut self, digest: &mut [u8; 28]) {
+        if digest.len() != 28 {
+            Err(Error::new(ErrorKind::InvalidSliceLength, "Slice length is not equal to digest lenght of 28."))
+        } else {
+            wrap_up!(self, u128, digest, 28, 128);
+            // fill in the last four bytes
+            digest[24..28].clone_from_slice(&self.st[3].to_be_bytes()[0..4]);
+            Ok(())
+        }
     }
 }
 
@@ -599,8 +630,14 @@ impl OneWayHasher<32> for Sha512_256 {
     }
 
     #[inline]
-    fn finish(&mut self, digest: &mut [u8; 32]) {
-        wrap_up!(self, u128, digest, 32, 128);
+    fn finish(&mut self, digest: &mut [u8]) -> Result<()> {
+    //fn finish(&mut self, digest: &mut [u8; 32]) {
+        if digest.len() != 32 {
+            Err(Error::new(ErrorKind::InvalidSliceLength, "Slice length not equal to digest lenght of 32."))
+        } else {
+            wrap_up!(self, u128, digest, 32, 128);
+            Ok(())
+        }
     }
 }
 

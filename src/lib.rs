@@ -9,7 +9,6 @@ pub mod io;
 pub mod merkle;
 pub mod sha2;
 pub mod sha3;
-use digest::Digest;
 use error::Result;
 use merkle::Proof;
 use std::ops::Range;
@@ -21,7 +20,8 @@ where
     fn init() -> Self;
     fn reset(&mut self) -> &mut Self;
     fn update(&mut self, data: &[u8]) -> &mut Self;
-    fn finish(&mut self, digest: &mut [u8; MDLEN]);
+    //fn finish(&mut self, digest: &mut [u8; MDLEN]);
+    fn finish(&mut self, digest: &mut [u8]) -> Result<()>;
 }
 
 pub trait FinishXOF
@@ -38,16 +38,16 @@ where
 {
     /// Calculate self's hash and write it to digest. Returns Ok(())
     /// on success or Err(error::Error) on failure.
-    fn calc_hash(&self, digest: &mut [u8]) -> error::Result<()>;
+    fn calc_hash(&self, digest: &mut [u8]) -> Result<()>;
 
     /// Return the previous block's hash digest as a slice
-    fn prev_hash<'a>(&self) -> error::Result<&'a [u8]>;
+    fn prev_hash(&self) -> Result<&[u8]>;
 
     /// Transmutate an object into an array of bytes.
-    fn encode(&self, buf: &mut [u8]) -> error::Result<()>;
+    fn encode(&self, buf: &mut [u8; BLOCK_SIZE]) -> Result<()>;
 
     /// Transmutate an array of bytes into a new object.
-    fn decocde(buf: &[u8]) -> error::Result<Self>;
+    fn decocde(buf: &[u8; BLOCK_SIZE]) -> Result<Self>;
 
     /// Returns the size of an encoded block in bytes.
     fn size() -> usize {
@@ -73,14 +73,14 @@ where
     fn validate(&self, range: Range<usize>) -> Result<()>;
 
     /// Appends a collection of blocks to the end of the blockchain.
-    fn append(&self) -> Result<()>;
+    fn append(&mut self, blocks: &[[u8; BLOCK_SIZE]]) -> Result<()>;
 
     /// Returns the state (hash digest of the last block) of the blockchain.
-    fn state(&self) -> Result<Digest<DIGEST_SIZE>>;
+    fn state(&self) -> Result<&[u8]>;
 
     /// Returns a merkle proof for the record at ```index`` in ```block```.
     fn prove(&self, block: usize, index: usize) -> Result<Proof<DIGEST_SIZE>>;
 
     /// Returns a block.
-    fn get(&self, block_num: u64) -> &[u8; BLOCK_SIZE];
+    fn get(&self, block_num: u64) -> Result<&[u8; BLOCK_SIZE]>;
 }
